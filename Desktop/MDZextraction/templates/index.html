@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Scraping</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script type="text/javascript">
+        var socket = io();  // Connect to the socket
+
+        // Listen for log messages
+        socket.on('log_message', function(message) {
+            var logDiv = document.getElementById('log');
+            var newMessage = document.createElement('div');
+            newMessage.textContent = message;
+            logDiv.appendChild(newMessage);
+            logDiv.scrollTop = logDiv.scrollHeight; // Scroll to bottom to keep logs visible
+        });
+
+        // Listen for the scraping done event to re-enable the button and show the download link
+        socket.on('scraping_done', function(data) {
+            console.log(data.message);  // This is the response from the backend
+            
+            // Display an alert message to the user
+            alert(data.message);
+            
+            // Provide the download link if the URL is present
+            if (data.file_url) {
+                let downloadLink = document.createElement('a');
+                downloadLink.href = data.file_url;
+                downloadLink.download = data.file_url.split('/').pop();  // Use the filename from the URL
+                downloadLink.textContent = 'Click here to download the scraped data';
+                
+                // Append the download link to the "download-section"
+                document.getElementById('download-section').appendChild(downloadLink);
+            }
+
+            // Re-enable the start button after scraping is done
+            if (data.re_enable_button) {
+                let startButton = document.getElementById("startButton");
+                startButton.disabled = false;
+                startButton.textContent = "Start Scraping"; // Reset the button text
+            }
+        });
+
+        // Function to upload file and start scraping
+        function uploadFile() {
+            var fileInput = document.getElementById("fileInput");
+            var batchSize = document.getElementById("batchSize").value;
+            var pauseTime = document.getElementById("pauseTime").value;
+            var file = fileInput.files[0];
+
+            // Validate inputs
+            if (!batchSize || !pauseTime || isNaN(batchSize) || isNaN(pauseTime)) {
+                alert("Please enter valid batch size and pause time.");
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('batch_size', batchSize);
+            formData.append('pause_time', pauseTime);
+
+            var startButton = document.getElementById("startButton");
+
+            // Disable the button during scraping
+            startButton.disabled = true;
+            startButton.textContent = "Scraping in Progress...";
+
+            fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                console.log(data.message);  // This is the response from the backend
+                if (data.message === "Scraping started!") {
+                    alert("Scraping started! Please wait.");
+                }
+              }).catch(error => {
+                console.error('Error:', error);
+                startButton.disabled = false;
+                startButton.textContent = "Start Scraping";
+              });
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        input, button {
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        #log {
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #000;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f4f4f4;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        #fileInput, #batchSize, #pauseTime {
+            width: 200px;
+        }
+
+        #download-section {
+            margin-top: 20px;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Web Scraping Application</h1>
+    <div style="text-align: center;">
+        <input type="file" id="fileInput">
+        <input type="number" id="batchSize" placeholder="Enter Batch Size" min="1">
+        <input type="number" id="pauseTime" placeholder="Enter Pause Time (min)" min="1">
+        <button id="startButton" onclick="uploadFile()">Upload File and Start Scraping</button>
+    </div>
+
+    <div id="log">
+        <!-- Log messages will appear here -->
+    </div>
+
+    <div id="download-section">
+        <!-- The download link will be added here after scraping is done -->
+    </div>
+</body>
+</html>
