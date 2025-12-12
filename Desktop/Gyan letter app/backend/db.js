@@ -11,6 +11,10 @@ export const pool = new Pool({
   database: process.env.DB_NAME || 'gyan_letter_db',
   password: process.env.DB_PASSWORD || 'postgres',
   port: process.env.DB_PORT || 5432,
+  // SSL configuration for cloud databases (Neon, Supabase, etc.)
+  ssl: process.env.DB_HOST && process.env.DB_HOST !== 'localhost' ? {
+    rejectUnauthorized: false
+  } : false
 })
 
 // Test connection
