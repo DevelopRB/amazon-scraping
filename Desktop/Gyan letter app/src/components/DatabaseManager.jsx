@@ -1,0 +1,2154 @@
+import { useState, useEffect } from 'react'
+import { Plus, Edit2, Trash2, Search, X, Save, Upload, Eye, ArrowUpDown, ArrowUp, ArrowDown, Filter, XCircle, Loader2, AlertCircle, Trash, Download, CheckSquare, Square } from 'lucide-react'
+import { databaseService } from '../services/database'
+import { apiService } from '../services/api'
+import { categoryService } from '../services/categoryService'
+import CategorySelector from './CategorySelector'
+import CategoryDashboard from './CategoryDashboard'
+import * as XLSX from 'xlsx'
+
+// Required columns for Excel upload validation
+const REQUIRED_COLUMNS = [
+  'Main Category',
+  'Ownership Type',
+  'Management Type',
+  'Subcategory',
+  'Specialization',
+  'University Name',
+  'University Code / Short Code',
+  'Address-1',
+  'Adddress-2',
+  'Address-3',
+  'Landmark',
+  'City / Campus',
+  'District',
+  'State / UT',
+  'Postal Code',
+  'Country',
+  'Google Map Link',
+  'GeoCoordinates',
+  'Year Established',
+  'Accreditation',
+  'Approval',
+  'Website',
+  'Contact Email-1',
+  'Contact Email-2',
+  'Contact Phone-1',
+  'Contact Phone-2',
+  'Contact Mobile',
+  'Contact Whatsapp',
+  'Contact Fax-2',
+  'Affiliated Colleges',
+  'Mode',
+  'Notes',
+  'Faculty ID',
+  'honorific',
+  'Full Name',
+  'Gender',
+  'Department',
+  'Office Address (Room, Block, Floor)',
+  'School / Division',
+  'Subjects Taught',
+  'Specialization',
+  'Research Area',
+  'Experience (Years)',
+  'Designation',
+  'Designation-Category',
+  'Highest Qualification',
+  'Qualified From',
+  'Certifications',
+  'Official Email',
+  'Personal Email',
+  'Mobile',
+  'WhatsApp',
+  'Office Extension',
+  'Office Address',
+  'Profile Link',
+  'Google Scholar',
+  'ResearchGate',
+  'LinkedIn',
+  'ORCID',
+  'Committees',
+  'Additional Roles',
+  'ID Proof',
+  'Certificates',
+  'Status'
+]
+
+export default function DatabaseManager() {
+  const [records, setRecords] = useState([])
+  const [filteredRecords, setFilteredRecords] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [formData, setFormData] = useState({})
+  const [excelPreview, setExcelPreview] = useState(null)
+  const [showPreview, setShowPreview] = useState(false)
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
+  const [filters, setFilters] = useState({})
+  const [showFilters, setShowFilters] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [selectedCategoryData, setSelectedCategoryData] = useState(null)
+  const [validationErrors, setValidationErrors] = useState(null)
+  const [rowValidationErrors, setRowValidationErrors] = useState([])
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [pendingExcelData, setPendingExcelData] = useState(null)
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
+  const [selectedCategories, setSelectedCategories] = useState([])
+  const [filterGroups, setFilterGroups] = useState([
+    {
+      id: 1,
+      logic: 'AND', // AND or OR
+      conditions: [
+        {
+          id: 1,
+          field: '',
+          operator: 'contains',
+          value: '',
+          valueList: []
+        }
+      ]
+    }
+  ])
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [selectedColumns, setSelectedColumns] = useState(new Set())
+  const [exportReady, setExportReady] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
+
+  useEffect(() => {
+    loadRecords()
+  }, [])
+
+  useEffect(() => {
+    applyFiltersAndSort()
+  }, [records, searchQuery, sortConfig, filters, selectedCategory])
+
+  const loadRecords = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await databaseService.search(searchQuery)
+      setRecords(data)
+    } catch (err) {
+      setError('Failed to load records. Please check if the server is running.')
+      console.error('Error loading records:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const applyFiltersAndSort = () => {
+    let result = [...records]
+
+    // Apply category filter - only show records matching the selected category
+    if (selectedCategory) {
+      result = result.filter(record => {
+        // Check if record has category info
+        const recordCategoryId = record._categoryId
+        if (!recordCategoryId) {
+          // If record has no category, don't show it when a category is selected
+          return false
+        }
+        // Match category ID
+        return recordCategoryId === selectedCategory
+      })
+    } else {
+      // If no category selected, show all records (including those without categories)
+      // But if user wants to see only categorized records, they can select a category
+    }
+
+    // Apply search
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase()
+      result = result.filter(record => {
+        return Object.values(record).some(value => 
+          String(value).toLowerCase().includes(lowerQuery)
+        )
+      })
+    }
+
+    // Apply filters
+    Object.keys(filters).forEach(field => {
+      if (filters[field]) {
+        const filterValue = filters[field].toLowerCase()
+        result = result.filter(record => {
+          const value = String(record[field] || '').toLowerCase()
+          return value.includes(filterValue)
+        })
+      }
+    })
+
+    // Apply sorting
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        const aVal = a[sortConfig.key] || ''
+        const bVal = b[sortConfig.key] || ''
+        
+        if (sortConfig.direction === 'asc') {
+          return String(aVal).localeCompare(String(bVal))
+        } else {
+          return String(bVal).localeCompare(String(aVal))
+        }
+      })
+    }
+
+    setFilteredRecords(result)
+  }
+
+  const handleSort = (field) => {
+    setSortConfig(prev => {
+      if (prev.key === field) {
+        if (prev.direction === 'asc') {
+          return { key: field, direction: 'desc' }
+        } else {
+          return { key: null, direction: 'asc' }
+        }
+      } else {
+        return { key: field, direction: 'asc' }
+      }
+    })
+  }
+
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => {
+      if (value) {
+        return { ...prev, [field]: value }
+      } else {
+        const newFilters = { ...prev }
+        delete newFilters[field]
+        return newFilters
+      }
+    })
+  }
+
+  const clearFilters = () => {
+    setFilters({})
+    setSortConfig({ key: null, direction: 'asc' })
+  }
+
+  // Validate Excel columns against required columns
+  const validateExcelColumns = (headers) => {
+    const missingColumns = []
+    const headerMap = new Map()
+    
+    // Normalize headers (trim, lowercase for comparison)
+    headers.forEach(header => {
+      const normalized = String(header).trim().toLowerCase()
+      headerMap.set(normalized, header)
+    })
+    
+    // Check each required column
+    REQUIRED_COLUMNS.forEach(requiredCol => {
+      const normalizedRequired = requiredCol.trim().toLowerCase()
+      let found = false
+      
+      // Check exact match
+      if (headerMap.has(normalizedRequired)) {
+        found = true
+      } else {
+        // Check for partial matches (case-insensitive, ignoring spaces)
+        for (const [normalizedHeader, originalHeader] of headerMap.entries()) {
+          // Remove spaces and compare
+          const normalizedRequiredNoSpaces = normalizedRequired.replace(/\s+/g, '')
+          const normalizedHeaderNoSpaces = normalizedHeader.replace(/\s+/g, '')
+          
+          if (normalizedRequiredNoSpaces === normalizedHeaderNoSpaces) {
+            found = true
+            break
+          }
+        }
+      }
+      
+      if (!found) {
+        missingColumns.push(requiredCol)
+      }
+    })
+    
+    return {
+      isValid: missingColumns.length === 0,
+      missingColumns,
+      headerMap
+    }
+  }
+
+  // Validate row-level data - check if required columns have values
+  const validateRowData = (rows, headers, headerMap) => {
+    const rowErrors = []
+    
+    // Create a map of required column names to their index in headers array
+    const requiredColumnIndices = new Map()
+    REQUIRED_COLUMNS.forEach(requiredCol => {
+      const normalizedRequired = requiredCol.trim().toLowerCase()
+      
+      // Find matching header index
+      headers.forEach((header, index) => {
+        const normalizedHeader = String(header).trim().toLowerCase()
+        const normalizedRequiredNoSpaces = normalizedRequired.replace(/\s+/g, '')
+        const normalizedHeaderNoSpaces = normalizedHeader.replace(/\s+/g, '')
+        
+        if (normalizedRequired === normalizedHeader || 
+            normalizedRequiredNoSpaces === normalizedHeaderNoSpaces) {
+          requiredColumnIndices.set(requiredCol, index)
+        }
+      })
+    })
+    
+    // Check each row for missing values in required columns
+    rows.forEach((row, rowIndex) => {
+      const missingFields = []
+      
+      REQUIRED_COLUMNS.forEach(requiredCol => {
+        const colIndex = requiredColumnIndices.get(requiredCol)
+        if (colIndex !== undefined) {
+          const cellValue = row[colIndex]
+          // Check if value is empty, null, undefined, or just whitespace
+          const isEmpty = cellValue === null || 
+                         cellValue === undefined || 
+                         (typeof cellValue === 'string' && cellValue.trim() === '')
+          
+          if (isEmpty) {
+            missingFields.push(requiredCol)
+          }
+        }
+      })
+      
+      if (missingFields.length > 0) {
+        // Excel row number is rowIndex + 2 (rowIndex is 0-based, +1 for header row, +1 for Excel's 1-based indexing)
+        const excelRowNumber = rowIndex + 2
+        rowErrors.push({
+          rowNumber: excelRowNumber,
+          rowIndex: rowIndex,
+          missingFields: missingFields
+        })
+      }
+    })
+    
+    return rowErrors
+  }
+
+  const handleExcelUpload = (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result)
+        const workbook = XLSX.read(data, { 
+          type: 'array', 
+          cellDates: true, 
+          cellNF: false, 
+          cellText: false,
+          sheetStubs: false  // Don't include stub cells
+        })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        
+        // Get the actual range of the sheet
+        const range = firstSheet['!ref'] ? XLSX.utils.decode_range(firstSheet['!ref']) : null
+        
+        if (!range) {
+          alert('The Excel file appears to be empty or invalid')
+          return
+        }
+
+        // Calculate total rows and columns (range is 0-indexed)
+        const totalRowsInSheet = range.e.r + 1
+        const totalColsInSheet = range.e.c + 1
+
+        // Read data as array of arrays - this gives us all rows
+        // Use defval: null to distinguish empty cells from cells with empty strings
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+          header: 1, 
+          defval: null,
+          raw: false,
+          blankrows: true  // Include blank rows
+        })
+
+        if (jsonData.length === 0) {
+          alert('The Excel file is empty')
+          return
+        }
+
+        // First row as headers
+        const headerRow = jsonData[0] || []
+        const maxCols = Math.max(headerRow.length, totalColsInSheet)
+        
+        const headers = []
+        for (let i = 0; i < maxCols; i++) {
+          const header = headerRow[i] !== null && headerRow[i] !== undefined 
+            ? String(headerRow[i]).trim() 
+            : null
+          headers.push(header || `Column${i + 1}`)
+        }
+
+        // Validate columns before processing data
+        const validation = validateExcelColumns(headers)
+        
+        if (!validation.isValid) {
+          // Store the parsed data temporarily
+          const tempData = {
+            headers,
+            jsonData,
+            totalRowsInSheet,
+            totalColsInSheet,
+            maxCols,
+            fileName: file.name,
+            workbook,
+            firstSheet
+          }
+          setPendingExcelData(tempData)
+          setValidationErrors(validation.missingColumns)
+          setRowValidationErrors([])
+          setShowValidationModal(true)
+          return
+        }
+
+        // Process ALL data rows starting from row 2 (index 1)
+        // Build a complete array including all rows up to the sheet's max row
+        const allRows = []
+        
+        // First, create a map of all rows from jsonData
+        const rowMap = new Map()
+        for (let i = 1; i < jsonData.length; i++) {
+          rowMap.set(i, jsonData[i] || [])
+        }
+        
+        // Now process all rows from 1 to totalRowsInSheet - 1 (excluding header)
+        for (let rowIndex = 1; rowIndex < totalRowsInSheet; rowIndex++) {
+          const row = rowMap.get(rowIndex) || []
+          
+          // Expand row to match header length, filling with null for missing cells
+          const expandedRow = []
+          for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+            expandedRow[colIndex] = row[colIndex] !== undefined ? row[colIndex] : null
+          }
+          
+          // Check if row has ANY content (non-null, non-undefined values)
+          const hasContent = expandedRow.some(cell => {
+            return cell !== null && cell !== undefined
+          })
+          
+          if (hasContent) {
+            allRows.push(expandedRow)
+          }
+        }
+
+        // Validate row-level data
+        const rowErrors = validateRowData(allRows, headers, validation.headerMap)
+        
+        if (rowErrors.length > 0) {
+          // Store the parsed data temporarily for validation
+          const tempData = {
+            headers,
+            jsonData,
+            totalRowsInSheet,
+            totalColsInSheet,
+            maxCols,
+            fileName: file.name,
+            workbook,
+            firstSheet,
+            allRows
+          }
+          setPendingExcelData(tempData)
+          setValidationErrors([])
+          setRowValidationErrors(rowErrors)
+          setShowValidationModal(true)
+          return
+        }
+
+        // Map rows to objects with all headers
+        const previewData = allRows.map((row) => {
+          const obj = {}
+          headers.forEach((header, colIndex) => {
+            const cellValue = row[colIndex]
+            // Convert to string, handling null, undefined, and dates
+            if (cellValue === null || cellValue === undefined) {
+              obj[header] = ''
+            } else if (cellValue instanceof Date) {
+              obj[header] = cellValue.toLocaleDateString()
+            } else {
+              obj[header] = String(cellValue)
+            }
+          })
+          return obj
+        })
+
+        console.log(`Excel file parsed:`, {
+          sheetRange: firstSheet['!ref'],
+          totalRowsInSheet: totalRowsInSheet - 1, // Excluding header
+          rowsInJsonData: jsonData.length - 1,
+          validRows: allRows.length,
+          headers: headers.length
+        })
+
+        setExcelPreview({
+          headers,
+          data: previewData,
+          fileName: file.name,
+          totalRows: totalRowsInSheet - 1, // Subtract header row
+          validRows: allRows.length
+        })
+        setShowPreview(true)
+      } catch (error) {
+        console.error('Error reading Excel file:', error)
+        alert('Error reading Excel file. Please make sure it is a valid Excel file.')
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  // Process pending Excel data after validation
+  const processPendingExcelData = () => {
+    if (!pendingExcelData) return
+
+    const { headers, jsonData, totalRowsInSheet, maxCols, fileName, allRows: preProcessedRows } = pendingExcelData
+
+    let allRows = preProcessedRows
+
+    // If rows weren't pre-processed, process them now
+    if (!allRows) {
+      allRows = []
+      
+      // First, create a map of all rows from jsonData
+      const rowMap = new Map()
+      for (let i = 1; i < jsonData.length; i++) {
+        rowMap.set(i, jsonData[i] || [])
+      }
+      
+      // Now process all rows from 1 to totalRowsInSheet - 1 (excluding header)
+      for (let rowIndex = 1; rowIndex < totalRowsInSheet; rowIndex++) {
+        const row = rowMap.get(rowIndex) || []
+        
+        // Expand row to match header length, filling with null for missing cells
+        const expandedRow = []
+        for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+          expandedRow[colIndex] = row[colIndex] !== undefined ? row[colIndex] : null
+        }
+        
+        // Check if row has ANY content (non-null, non-undefined values)
+        const hasContent = expandedRow.some(cell => {
+          return cell !== null && cell !== undefined
+        })
+        
+        if (hasContent) {
+          allRows.push(expandedRow)
+        }
+      }
+    }
+
+    // Map rows to objects with all headers
+    const previewData = allRows.map((row) => {
+      const obj = {}
+      headers.forEach((header, colIndex) => {
+        const cellValue = row[colIndex]
+        // Convert to string, handling null, undefined, and dates
+        if (cellValue === null || cellValue === undefined) {
+          obj[header] = ''
+        } else if (cellValue instanceof Date) {
+          obj[header] = cellValue.toLocaleDateString()
+        } else {
+          obj[header] = String(cellValue)
+        }
+      })
+      return obj
+    })
+
+    setExcelPreview({
+      headers,
+      data: previewData,
+      fileName,
+      totalRows: totalRowsInSheet - 1,
+      validRows: allRows.length
+    })
+    setShowPreview(true)
+    setShowValidationModal(false)
+    setPendingExcelData(null)
+    setValidationErrors(null)
+    setRowValidationErrors([])
+  }
+
+  const handleValidationContinue = () => {
+    processPendingExcelData()
+  }
+
+  const handleValidationCancel = () => {
+    setShowValidationModal(false)
+    setPendingExcelData(null)
+    setValidationErrors(null)
+    setRowValidationErrors([])
+    // Reset file input
+    const fileInput = document.getElementById('excel-upload')
+    if (fileInput) fileInput.value = ''
+  }
+
+  const importExcelData = async () => {
+    if (!excelPreview || excelPreview.data.length === 0) {
+      alert('No data to import')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    
+    const startTime = Date.now()
+    console.log('\n=== FRONTEND: Starting Import ===')
+    console.log(`📊 Records to import: ${excelPreview.data.length}`)
+    console.log(`📋 Headers: ${excelPreview.headers.length}`)
+    console.log(`⏰ Start time: ${new Date().toLocaleTimeString()}`)
+    
+    try {
+      console.log('🔄 Preparing data for import...')
+      const imported = excelPreview.data.map((row, index) => {
+        const record = {}
+        excelPreview.headers.forEach(header => {
+          record[header] = row[header] || ''
+        })
+        // Add category information to each record
+        if (selectedCategory) {
+          record._categoryId = selectedCategory
+          record._categoryName = selectedCategoryData?.name || ''
+        }
+        return record
+      })
+
+      console.log('✅ Data prepared for import')
+      console.log('📤 Sending to backend server...')
+
+      // Bulk add all records to database
+      const result = await databaseService.bulkAdd(imported)
+      
+      const endTime = Date.now()
+      const duration = ((endTime - startTime) / 1000).toFixed(2)
+      
+      console.log('\n=== FRONTEND: Import Complete ===')
+      console.log(`✅ Successfully imported: ${result.count} records`)
+      if (result.skipped) {
+        console.log(`⚠️  Skipped: ${result.skipped} records`)
+      }
+      console.log(`⏱️  Total time: ${duration} seconds`)
+      if (result.recordsPerSecond) {
+        console.log(`📈 Speed: ${result.recordsPerSecond} records/second`)
+      }
+      console.log('================================\n')
+      
+      const successMessage = result.skipped 
+        ? `Successfully imported ${result.count} records!\n\nSkipped: ${result.skipped} records\nTime: ${duration}s\n\nCheck backend console for detailed logs.`
+        : `Successfully imported ${result.count} records!\n\nTime: ${duration}s\nSpeed: ${result.recordsPerSecond || 'N/A'} records/second\n\nCheck backend console for detailed logs.`
+      
+      alert(successMessage)
+      setExcelPreview(null)
+      setShowPreview(false)
+      await loadRecords()
+      
+      // Reset file input
+      const fileInput = document.getElementById('excel-upload')
+      if (fileInput) fileInput.value = ''
+    } catch (err) {
+      const endTime = Date.now()
+      const duration = ((endTime - startTime) / 1000).toFixed(2)
+      const errorMessage = err.message || 'Failed to import records'
+      
+      console.error('\n=== FRONTEND: Import Failed ===')
+      console.error(`❌ Error: ${errorMessage}`)
+      console.error(`⏱️  Failed after: ${duration} seconds`)
+      console.error('Full error:', err)
+      console.error('================================\n')
+      
+      setError(`Failed to import records: ${errorMessage}`)
+      alert(`Failed to import records: ${errorMessage}\n\nDuration: ${duration}s\n\nCheck browser console and backend server logs for details.`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAdd = async () => {
+    if (Object.keys(formData).length === 0) {
+      alert('Please add at least one field')
+      return
+    }
+    
+    setLoading(true)
+    setError(null)
+    try {
+      await databaseService.add(formData)
+      setFormData({})
+      setShowAddForm(false)
+      await loadRecords()
+    } catch (err) {
+      setError('Failed to add record. Please try again.')
+      console.error('Error adding record:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (record) => {
+    setEditingId(record.id)
+    const { id, createdAt, updatedAt, ...rest } = record
+    setFormData(rest)
+  }
+
+  const handleUpdate = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      await databaseService.update(editingId, formData)
+      setEditingId(null)
+      setFormData({})
+      await loadRecords()
+    } catch (err) {
+      setError('Failed to update record. Please try again.')
+      console.error('Error updating record:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    setDeleteConfirm(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return
+    
+    setLoading(true)
+    setError(null)
+    try {
+      await databaseService.delete(deleteConfirm)
+      setDeleteConfirm(null)
+      await loadRecords()
+    } catch (err) {
+      setError('Failed to delete record. Please try again.')
+      console.error('Error deleting record:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null)
+  }
+
+  const handleDeleteAll = () => {
+    setDeleteAllConfirm(true)
+  }
+
+  const confirmDeleteAll = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      await apiService.deleteAll()
+      console.log('✓ All records deleted successfully')
+      setDeleteAllConfirm(false)
+      await loadRecords()
+      alert('All records have been deleted successfully!')
+    } catch (err) {
+      setError('Failed to delete all records. Please try again.')
+      console.error('Error deleting all records:', err)
+      alert('Failed to delete all records. Please check the console for details.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const cancelDeleteAll = () => {
+    setDeleteAllConfirm(false)
+  }
+
+  const handleCancel = () => {
+    setEditingId(null)
+    setShowAddForm(false)
+    setFormData({})
+  }
+
+  const updateFormField = (key, value) => {
+    setFormData(prev => ({ ...prev, [key]: value }))
+  }
+
+  const addNewField = () => {
+    const fieldName = prompt('Enter field name:')
+    if (fieldName && fieldName.trim()) {
+      updateFormField(fieldName.trim(), '')
+    }
+  }
+
+  const removeField = (key) => {
+    const newData = { ...formData }
+    delete newData[key]
+    setFormData(newData)
+  }
+
+  const getFieldNames = () => {
+    const allFields = new Set()
+    records.forEach(record => {
+      Object.keys(record).forEach(key => {
+        if (key !== 'id' && key !== 'createdAt' && key !== 'updatedAt') {
+          allFields.add(key)
+        }
+      })
+    })
+    return Array.from(allFields)
+  }
+
+  const allFieldNames = getFieldNames()
+
+  // Operator definitions
+  const OPERATORS = {
+    text: [
+      { value: 'equals', label: 'Equals' },
+      { value: 'contains', label: 'Contains' },
+      { value: 'startsWith', label: 'Starts With' },
+      { value: 'endsWith', label: 'Ends With' },
+      { value: 'inList', label: 'In List (multi-select)' }
+    ],
+    number: [
+      { value: 'equals', label: 'Equals' },
+      { value: 'greaterThan', label: 'Greater Than' },
+      { value: 'lessThan', label: 'Less Than' },
+      { value: 'greaterThanOrEqual', label: 'Greater Than Or Equal' },
+      { value: 'lessThanOrEqual', label: 'Less Than Or Equal' },
+      { value: 'between', label: 'Between' }
+    ]
+  }
+
+  // Get field type (text or number)
+  const getFieldType = (fieldName) => {
+    const numberFields = ['Year Established', 'Experience (Years)', 'Postal Code']
+    const lowerField = fieldName.toLowerCase()
+    if (numberFields.some(nf => lowerField.includes(nf.toLowerCase()))) {
+      return 'number'
+    }
+    return 'text'
+  }
+
+  // Check if condition matches record
+  const conditionMatches = (record, condition) => {
+    if (!condition.field || !condition.operator) return true
+
+    const fieldValue = record[condition.field]
+    const recordValue = fieldValue !== null && fieldValue !== undefined ? String(fieldValue).trim() : ''
+    const conditionValue = String(condition.value || '').trim().toLowerCase()
+    const fieldType = getFieldType(condition.field)
+
+    switch (condition.operator) {
+      case 'equals':
+        return recordValue.toLowerCase() === conditionValue
+      
+      case 'contains':
+        return recordValue.toLowerCase().includes(conditionValue)
+      
+      case 'startsWith':
+        return recordValue.toLowerCase().startsWith(conditionValue)
+      
+      case 'endsWith':
+        return recordValue.toLowerCase().endsWith(conditionValue)
+      
+      case 'inList':
+        if (condition.valueList && condition.valueList.length > 0) {
+          return condition.valueList.some(val => 
+            recordValue.toLowerCase() === String(val).trim().toLowerCase()
+          )
+        }
+        return true
+      
+      case 'greaterThan':
+        const numValue1 = parseFloat(recordValue)
+        const numCondition1 = parseFloat(condition.value)
+        return !isNaN(numValue1) && !isNaN(numCondition1) && numValue1 > numCondition1
+      
+      case 'lessThan':
+        const numValue2 = parseFloat(recordValue)
+        const numCondition2 = parseFloat(condition.value)
+        return !isNaN(numValue2) && !isNaN(numCondition2) && numValue2 < numCondition2
+      
+      case 'greaterThanOrEqual':
+        const numValue3 = parseFloat(recordValue)
+        const numCondition3 = parseFloat(condition.value)
+        return !isNaN(numValue3) && !isNaN(numCondition3) && numValue3 >= numCondition3
+      
+      case 'lessThanOrEqual':
+        const numValue4 = parseFloat(recordValue)
+        const numCondition4 = parseFloat(condition.value)
+        return !isNaN(numValue4) && !isNaN(numCondition4) && numValue4 <= numCondition4
+      
+      case 'between':
+        const numValue5 = parseFloat(recordValue)
+        const numMin = parseFloat(condition.value)
+        const numMax = parseFloat(condition.value2 || condition.value)
+        return !isNaN(numValue5) && !isNaN(numMin) && !isNaN(numMax) && 
+               numValue5 >= numMin && numValue5 <= numMax
+      
+      default:
+        return true
+    }
+  }
+
+  // Check if group matches record
+  const groupMatches = (record, group) => {
+    if (!group.conditions || group.conditions.length === 0) return true
+
+    const results = group.conditions.map(condition => conditionMatches(record, condition))
+    
+    if (group.logic === 'AND') {
+      return results.every(r => r === true)
+    } else { // OR
+      return results.some(r => r === true)
+    }
+  }
+
+  // Advanced filtering functions with query builder
+  const getFilteredRecordsForExport = () => {
+    let result = [...records]
+
+    // Filter by selected categories
+    if (selectedCategories.length > 0) {
+      result = result.filter(record => {
+        const recordCategoryId = record._categoryId
+        return recordCategoryId && selectedCategories.includes(recordCategoryId)
+      })
+    }
+
+    // Apply global search across multiple columns
+    if (globalSearch.trim()) {
+      const searchLower = globalSearch.toLowerCase()
+      const searchColumns = [
+        'University Name', 'Full Name', 'Department', 'Subjects Taught',
+        'Specialization', 'Research Area', 'City / Campus', 'District', 'State / UT'
+      ]
+      
+      result = result.filter(record => {
+        return searchColumns.some(col => {
+          const value = String(record[col] || '').toLowerCase()
+          return value.includes(searchLower)
+        })
+      })
+    }
+
+    // Apply filter groups (AND between groups, AND/OR within groups)
+    if (filterGroups.length > 0) {
+      result = result.filter(record => {
+        // All groups must match (AND logic between groups)
+        return filterGroups.every(group => groupMatches(record, group))
+      })
+    }
+
+    return result
+  }
+
+  // Get unique values for filter dropdowns
+  const getUniqueValues = (fieldName) => {
+    const values = new Set()
+    records.forEach(record => {
+      const value = record[fieldName]
+      if (value && String(value).trim()) {
+        values.add(String(value).trim())
+      }
+    })
+    return Array.from(values).sort()
+  }
+
+  // Filter group management functions
+  const addFilterGroup = () => {
+    const newGroup = {
+      id: Date.now(),
+      logic: 'AND',
+      conditions: [{
+        id: Date.now(),
+        field: '',
+        operator: 'contains',
+        value: '',
+        valueList: []
+      }]
+    }
+    setFilterGroups([...filterGroups, newGroup])
+  }
+
+  const removeFilterGroup = (groupId) => {
+    if (filterGroups.length > 1) {
+      setFilterGroups(filterGroups.filter(g => g.id !== groupId))
+    }
+  }
+
+  const updateGroupLogic = (groupId, logic) => {
+    setFilterGroups(filterGroups.map(g => 
+      g.id === groupId ? { ...g, logic } : g
+    ))
+  }
+
+  const addCondition = (groupId) => {
+    setFilterGroups(filterGroups.map(g => 
+      g.id === groupId 
+        ? { ...g, conditions: [...g.conditions, { id: Date.now(), field: '', operator: 'contains', value: '', valueList: [] }] }
+        : g
+    ))
+  }
+
+  const removeCondition = (groupId, conditionId) => {
+    setFilterGroups(filterGroups.map(g => 
+      g.id === groupId 
+        ? { ...g, conditions: g.conditions.filter(c => c.id !== conditionId) }
+        : g
+    ))
+  }
+
+  const updateCondition = (groupId, conditionId, updates) => {
+    setFilterGroups(filterGroups.map(g => 
+      g.id === groupId 
+        ? {
+            ...g,
+            conditions: g.conditions.map(c => 
+              c.id === conditionId ? { ...c, ...updates } : c
+            )
+          }
+        : g
+    ))
+  }
+
+  // Initialize selected columns with all columns when opening advanced filter
+  const initializeColumnSelection = () => {
+    const allCols = new Set(allFieldNames)
+    setSelectedColumns(allCols)
+  }
+
+  // Toggle column selection
+  const toggleColumnSelection = (column) => {
+    setSelectedColumns(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(column)) {
+        newSet.delete(column)
+      } else {
+        newSet.add(column)
+      }
+      return newSet
+    })
+  }
+
+  // Select all columns
+  const selectAllColumns = () => {
+    setSelectedColumns(new Set(allFieldNames))
+  }
+
+  // Deselect all columns
+  const deselectAllColumns = () => {
+    setSelectedColumns(new Set())
+  }
+
+  // Export filtered data to Excel
+  const exportToExcel = async () => {
+    setExporting(true)
+    setExportError(null)
+    
+    try {
+      // Validation checks with helpful messages
+      const filteredData = getFilteredRecordsForExport()
+      
+      if (filteredData.length === 0) {
+        const reasons = []
+        if (selectedCategories.length > 0) {
+          reasons.push(`• Selected categories may not have matching records`)
+        }
+        if (globalSearch.trim()) {
+          reasons.push(`• Global search "${globalSearch}" may not match any records`)
+        }
+        if (filterGroups.some(g => g.conditions.some(c => c.field && c.value))) {
+          reasons.push(`• Filter conditions may be too restrictive`)
+        }
+        
+        const message = reasons.length > 0
+          ? `No records match the selected filters.\n\nPossible reasons:\n${reasons.join('\n')}\n\nPlease adjust your filters and try again.`
+          : 'No records match the selected filters. Please adjust your filters.'
+        
+        alert(message)
+        return
+      }
+
+      if (selectedColumns.size === 0) {
+        alert('Please select at least one column to export.\n\nTip: Click "Select All" to include all columns, or manually select the columns you need.')
+        return
+      }
+
+      // Validate XLSX library is available
+      if (typeof XLSX === 'undefined' || !XLSX.utils || !XLSX.writeFile) {
+        alert('Excel export library is not loaded. Please refresh the page and try again.\n\nIf the problem persists, check the browser console for errors.')
+        console.error('XLSX library not available:', XLSX)
+        return
+      }
+
+      // Prepare data with selected columns only
+      const exportData = filteredData.map((record, index) => {
+        try {
+          const exportRecord = {}
+          selectedColumns.forEach(column => {
+            const value = record[column]
+            // Handle different data types
+            if (value === null || value === undefined) {
+              exportRecord[column] = ''
+            } else if (typeof value === 'object') {
+              // Handle objects/arrays by converting to JSON string
+              exportRecord[column] = JSON.stringify(value)
+            } else {
+              exportRecord[column] = String(value)
+            }
+          })
+          return exportRecord
+        } catch (err) {
+          console.error(`Error processing record at index ${index}:`, err, record)
+          // Return a record with error indicator
+          const errorRecord = {}
+          selectedColumns.forEach(column => {
+            errorRecord[column] = `[Error: ${err.message}]`
+          })
+          return errorRecord
+        }
+      })
+
+      if (exportData.length === 0) {
+        alert('Error: No data could be prepared for export. Please check your data and try again.')
+        return
+      }
+
+      // Create workbook
+      let ws, wb
+      try {
+        ws = XLSX.utils.json_to_sheet(exportData)
+        if (!ws) {
+          throw new Error('Failed to create worksheet')
+        }
+        
+        wb = XLSX.utils.book_new()
+        if (!wb) {
+          throw new Error('Failed to create workbook')
+        }
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Filtered Data')
+      } catch (err) {
+        console.error('Error creating Excel workbook:', err)
+        alert(`Error creating Excel file: ${err.message}\n\nPossible reasons:\n• Data format may be invalid\n• Too many columns or rows\n• Browser memory issue\n\nPlease try:\n1. Reducing the number of selected columns\n2. Applying more filters to reduce record count\n3. Refreshing the page`)
+        return
+      }
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+      let categoryNames = ''
+      try {
+        const categories = categoryService.getAll()
+        categoryNames = selectedCategories.map(catId => {
+          return categories[catId]?.name || catId
+        }).join('_')
+      } catch (err) {
+        console.warn('Error getting category names:', err)
+        categoryNames = 'all'
+      }
+      
+      const filename = `export_${categoryNames || 'all'}_${timestamp}.xlsx`
+
+      // Validate filename
+      if (!filename || filename.length === 0) {
+        alert('Error: Could not generate filename. Please try again.')
+        return
+      }
+
+      // Download
+      try {
+        XLSX.writeFile(wb, filename)
+        setExportError(null)
+        alert(`✅ Successfully exported ${exportData.length} records to ${filename}\n\nFile should download automatically. Check your browser's download folder if you don't see it.`)
+      } catch (err) {
+        console.error('Error writing Excel file:', err)
+        const errorMsg = `Error downloading file: ${err.message}\n\nPossible reasons:\n• Browser blocked the download\n• Insufficient disk space\n• File system permissions issue\n\nPlease try:\n1. Check browser download settings\n2. Allow downloads for this site\n3. Check available disk space\n4. Try a different browser`
+        setExportError(errorMsg)
+        alert(errorMsg)
+      }
+    } catch (err) {
+      console.error('Unexpected error during export:', err)
+      const errorMsg = `Unexpected error during export: ${err.message}\n\nPlease try:\n1. Refreshing the page\n2. Checking browser console for details\n3. Reducing the amount of data to export`
+      setExportError(errorMsg)
+      alert(errorMsg)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Open advanced filter modal
+  const openAdvancedFilter = () => {
+    initializeColumnSelection()
+    setExportError(null)
+    setExporting(false)
+    setShowAdvancedFilter(true)
+  }
+
+  // Close advanced filter modal
+  const closeAdvancedFilter = () => {
+    setShowAdvancedFilter(false)
+    setSelectedCategories([])
+    setFilterGroups([{
+      id: 1,
+      logic: 'AND',
+      conditions: [{
+        id: 1,
+        field: '',
+        operator: 'contains',
+        value: '',
+        valueList: []
+      }]
+    }])
+    setGlobalSearch('')
+    setExportError(null)
+    setExporting(false)
+    initializeColumnSelection()
+  }
+
+  const getSortIcon = (field) => {
+    if (sortConfig.key !== field) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />
+    }
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="w-4 h-4 text-blue-600" />
+      : <ArrowDown className="w-4 h-4 text-blue-600" />
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Database Manager</h2>
+          <div className="flex space-x-2">
+            <label className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700 cursor-pointer">
+              <Upload className="w-4 h-4" />
+              <span>Upload Excel</span>
+              <input
+                id="excel-upload"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleExcelUpload}
+                className="hidden"
+              />
+            </label>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Record</span>
+            </button>
+            {records.length > 0 && (
+              <>
+                <button
+                  onClick={openAdvancedFilter}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-purple-700"
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Advanced Filter & Export</span>
+                </button>
+                <button
+                  onClick={handleDeleteAll}
+                  disabled={loading}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete All</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center space-x-3 mb-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+                <h3 className="text-xl font-bold text-gray-800">Confirm Delete</h3>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete this record? This action cannot be undone.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={confirmDelete}
+                  disabled={loading}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <span>Delete</span>
+                  )}
+                </button>
+                <button
+                  onClick={cancelDelete}
+                  disabled={loading}
+                  className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete All Confirmation Modal */}
+        {deleteAllConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center space-x-3 mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+                <h3 className="text-xl font-bold text-gray-800">Delete All Records</h3>
+              </div>
+              <div className="mb-6">
+                <p className="text-gray-700 font-semibold mb-2">
+                  ⚠️ WARNING: This will delete ALL {records.length} records!
+                </p>
+                <p className="text-gray-600">
+                  This action cannot be undone. All data will be permanently deleted from the database.
+                </p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+                <p className="text-red-700 text-sm font-medium">
+                  Are you absolutely sure you want to proceed?
+                </p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={confirmDeleteAll}
+                  disabled={loading}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting All...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash className="w-4 h-4" />
+                      <span>Yes, Delete All</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={cancelDeleteAll}
+                  disabled={loading}
+                  className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Validation Error Modal */}
+        {showValidationModal && ((validationErrors && validationErrors.length > 0) || (rowValidationErrors && rowValidationErrors.length > 0)) && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
+              <div className="flex items-center space-x-3 mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+                <h3 className="text-xl font-bold text-gray-800">
+                  {validationErrors && validationErrors.length > 0 
+                    ? 'Missing Required Columns' 
+                    : 'Missing Values in Required Columns'}
+                </h3>
+              </div>
+              
+              <div className="mb-6 space-y-4">
+                {/* Column-level errors */}
+                {validationErrors && validationErrors.length > 0 && (
+                  <>
+                    <p className="text-gray-700">
+                      The uploaded Excel file is missing the following required columns. Please add these columns to your Excel file before importing.
+                    </p>
+                    
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-800 font-semibold mb-2">
+                        Missing Columns ({validationErrors.length}):
+                      </p>
+                      <div className="max-h-64 overflow-y-auto">
+                        <ul className="list-disc list-inside space-y-1 text-red-700">
+                          {validationErrors.map((column, index) => (
+                            <li key={index} className="text-sm">
+                              <strong>{column}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Row-level errors */}
+                {rowValidationErrors && rowValidationErrors.length > 0 && (
+                  <>
+                    <p className="text-gray-700">
+                      The following rows have missing values in required columns. Please add values for these fields before importing.
+                    </p>
+                    
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-800 font-semibold mb-2">
+                        Rows with Missing Values ({rowValidationErrors.length}):
+                      </p>
+                      <div className="max-h-96 overflow-y-auto">
+                        <div className="space-y-3">
+                          {rowValidationErrors.map((error, index) => (
+                            <div key={index} className="bg-white border border-red-300 rounded p-3">
+                              <p className="text-red-800 font-semibold mb-1">
+                                Row {error.rowNumber}:
+                              </p>
+                              <p className="text-red-700 text-sm mb-1">
+                                Missing fields:
+                              </p>
+                              <ul className="list-disc list-inside ml-4 space-y-0.5">
+                                {error.missingFields.map((field, fieldIndex) => (
+                                  <li key={fieldIndex} className="text-sm text-red-600">
+                                    <strong>{field}</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-800 text-sm">
+                    <strong>Note:</strong> You can continue importing with missing columns/values, but the data may be incomplete. 
+                    It's recommended to fix these issues in your Excel file before importing for proper data structure.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleValidationCancel}
+                  className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 flex items-center justify-center space-x-2"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Cancel Import</span>
+                </button>
+                <button
+                  onClick={handleValidationContinue}
+                  className="flex-1 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center justify-center space-x-2"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Continue Import Anyway</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Advanced Filter & Export Modal */}
+        {showAdvancedFilter && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-5xl w-full mx-4 max-h-[90vh] overflow-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Advanced Filter & Export</h3>
+                <button
+                  onClick={closeAdvancedFilter}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Category Selection */}
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-3">Select Categories (Multiple)</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    {Object.entries(categoryService.getAll()).map(([id, category]) => (
+                      <label key={id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCategories([...selectedCategories, id])
+                            } else {
+                              setSelectedCategories(selectedCategories.filter(catId => catId !== id))
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">{category.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedCategories.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-2">No categories selected - will include all records</p>
+                  )}
+                </div>
+
+                {/* Global Search */}
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-3">Global Search (Across Multiple Columns)</h4>
+                  <input
+                    type="text"
+                    value={globalSearch}
+                    onChange={(e) => setGlobalSearch(e.target.value)}
+                    placeholder="Search across: University Name, Full Name, Department, Subjects Taught, Specialization, Research Area, City, District, State..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Searches across: University Name, Full Name, Department, Subjects Taught, Specialization, Research Area, City / Campus, District, State / UT
+                  </p>
+                </div>
+
+                {/* Query Builder - Filter Groups */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-gray-700">Advanced Filter Builder</h4>
+                    <button
+                      onClick={addFilterGroup}
+                      className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                    >
+                      + Add Filter Group
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {filterGroups.map((group, groupIndex) => (
+                      <div key={group.id} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-700">Group {groupIndex + 1}</span>
+                            <select
+                              value={group.logic}
+                              onChange={(e) => updateGroupLogic(group.id, e.target.value)}
+                              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                            >
+                              <option value="AND">AND (All conditions must match)</option>
+                              <option value="OR">OR (Any condition can match)</option>
+                            </select>
+                          </div>
+                          {filterGroups.length > 1 && (
+                            <button
+                              onClick={() => removeFilterGroup(group.id)}
+                              className="text-red-600 hover:text-red-700 text-sm"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          {group.conditions.map((condition, condIndex) => (
+                            <div key={condition.id} className="flex items-start space-x-2 bg-white p-3 rounded border border-gray-200">
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
+                                {/* Field Selection */}
+                                <select
+                                  value={condition.field}
+                                  onChange={(e) => updateCondition(group.id, condition.id, { field: e.target.value, operator: 'contains' })}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                >
+                                  <option value="">Select Field...</option>
+                                  {allFieldNames.map(field => (
+                                    <option key={field} value={field}>{field}</option>
+                                  ))}
+                                </select>
+
+                                {/* Operator Selection */}
+                                <select
+                                  value={condition.operator}
+                                  onChange={(e) => updateCondition(group.id, condition.id, { operator: e.target.value })}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                  disabled={!condition.field}
+                                >
+                                  {OPERATORS[getFieldType(condition.field || 'text')].map(op => (
+                                    <option key={op.value} value={op.value}>{op.label}</option>
+                                  ))}
+                                </select>
+
+                                {/* Value Input */}
+                                {condition.operator !== 'inList' && condition.operator !== 'between' && (
+                                  <input
+                                    type={getFieldType(condition.field || 'text') === 'number' ? 'number' : 'text'}
+                                    value={condition.value || ''}
+                                    onChange={(e) => updateCondition(group.id, condition.id, { value: e.target.value })}
+                                    placeholder="Enter value..."
+                                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                    disabled={!condition.field}
+                                  />
+                                )}
+
+                                {/* Between operator - two inputs */}
+                                {condition.operator === 'between' && (
+                                  <>
+                                    <input
+                                      type="number"
+                                      value={condition.value || ''}
+                                      onChange={(e) => updateCondition(group.id, condition.id, { value: e.target.value })}
+                                      placeholder="Min value..."
+                                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                      disabled={!condition.field}
+                                    />
+                                    <input
+                                      type="number"
+                                      value={condition.value2 || ''}
+                                      onChange={(e) => updateCondition(group.id, condition.id, { value2: e.target.value })}
+                                      placeholder="Max value..."
+                                      className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                      disabled={!condition.field}
+                                    />
+                                  </>
+                                )}
+
+                                {/* In List - Multi-select */}
+                                {condition.operator === 'inList' && condition.field && (
+                                  <div className="md:col-span-2">
+                                    <select
+                                      multiple
+                                      value={condition.valueList || []}
+                                      onChange={(e) => {
+                                        const selected = Array.from(e.target.selectedOptions, option => option.value)
+                                        updateCondition(group.id, condition.id, { valueList: selected })
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm min-h-[80px]"
+                                      size="4"
+                                    >
+                                      {getUniqueValues(condition.field).map(value => (
+                                        <option key={value} value={value}>{value}</option>
+                                      ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center space-x-1">
+                                {group.conditions.length > 1 && (
+                                  <button
+                                    onClick={() => removeCondition(group.id, condition.id)}
+                                    className="text-red-600 hover:text-red-700"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          <button
+                            onClick={() => addCondition(group.id)}
+                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add Condition</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    <strong>Note:</strong> All filter groups use AND logic between them (all groups must match)
+                  </p>
+                </div>
+
+                {/* Column Selection */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-gray-700">Select Columns to Export</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={selectAllColumns}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-gray-400">|</span>
+                      <button
+                        onClick={deselectAllColumns}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {allFieldNames.map((column) => (
+                        <label 
+                          key={column} 
+                          className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                          onClick={() => toggleColumnSelection(column)}
+                        >
+                          {selectedColumns.has(column) ? (
+                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                          ) : (
+                            <Square className="w-4 h-4 text-gray-400" />
+                          )}
+                          <span className="text-sm text-gray-700 truncate" title={column}>
+                            {column}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Selected: {selectedColumns.size} of {allFieldNames.length} columns
+                  </p>
+                </div>
+
+                {/* Preview Count */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-blue-800 font-semibold">
+                    Records matching filters: {getFilteredRecordsForExport().length}
+                  </p>
+                  {selectedColumns.size > 0 && (
+                    <p className="text-blue-700 text-sm mt-1">
+                      Will export {selectedColumns.size} column(s)
+                    </p>
+                  )}
+                  {getFilteredRecordsForExport().length === 0 && (
+                    <div className="mt-2 text-sm text-orange-700">
+                      <p className="font-medium">⚠️ No records match your filters</p>
+                      <p className="text-xs mt-1">Try adjusting your filters or selecting different categories</p>
+                    </div>
+                  )}
+                  {selectedColumns.size === 0 && (
+                    <div className="mt-2 text-sm text-orange-700">
+                      <p className="font-medium">⚠️ No columns selected</p>
+                      <p className="text-xs mt-1">Select at least one column to export</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Export Error Display */}
+                {exportError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-2">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-red-800 font-semibold mb-1">Export Error</p>
+                        <p className="text-red-700 text-sm whitespace-pre-line">{exportError}</p>
+                      </div>
+                      <button
+                        onClick={() => setExportError(null)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3">
+                  <button
+                    onClick={exportToExcel}
+                    disabled={selectedColumns.size === 0 || getFilteredRecordsForExport().length === 0 || exporting}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {exporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Exporting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        <span>Export to Excel</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={closeAdvancedFilter}
+                    disabled={exporting}
+                    className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Excel Preview Modal */}
+        {showPreview && excelPreview && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Excel Preview - {excelPreview.fileName}</h3>
+                <button
+                  onClick={() => {
+                    setShowPreview(false)
+                    setExcelPreview(null)
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="mb-4 space-y-3">
+                {/* Category Info */}
+                {selectedCategoryData && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <div>
+                        <strong>Category:</strong> <span className="text-green-700 font-medium">{selectedCategoryData.name}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* File Info */}
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <div><strong>Total rows in file:</strong> {excelPreview.totalRows || excelPreview.data.length}</div>
+                    <div><strong>Valid rows to import:</strong> {excelPreview.validRows || excelPreview.data.length}</div>
+                    {excelPreview.totalRows && excelPreview.totalRows !== excelPreview.validRows && (
+                      <div className="text-orange-600">
+                        <strong>Note:</strong> {excelPreview.totalRows - excelPreview.validRows} empty rows were excluded
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto mb-4 border border-gray-200 rounded">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {excelPreview.headers.map((header) => (
+                        <th key={header} className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {excelPreview.data.slice(0, 10).map((row, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        {excelPreview.headers.map((header) => (
+                          <td key={header} className="border border-gray-300 px-4 py-2 text-gray-700">
+                            {row[header] || '-'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {excelPreview.data.length > 10 && (
+                  <div className="p-2 text-sm text-gray-500 text-center">
+                    Showing first 10 of {excelPreview.data.length} rows
+                  </div>
+                )}
+              </div>
+
+              <div className="flex space-x-2">
+                {!selectedCategory && (
+                  <div className="flex-1 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-2">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ <strong>Note:</strong> No category selected. Select a category above to organize your data.
+                    </p>
+                  </div>
+                )}
+                <button
+                  onClick={importExcelData}
+                  disabled={loading}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Importing...</span>
+                    </>
+                  ) : (
+                    <span>Import All {excelPreview.data.length} Records</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPreview(false)
+                    setExcelPreview(null)
+                  }}
+                  className="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Category Selector */}
+        <CategorySelector
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          onCategorySelect={setSelectedCategoryData}
+        />
+
+        {/* Category Filter Indicator */}
+        {selectedCategory && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-blue-800">
+                <strong>Filtering by:</strong> {selectedCategoryData?.name}
+              </span>
+              <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} shown
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedCategory(null)
+                setSelectedCategoryData(null)
+                setSelectedItem(null)
+              }}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              Clear Filter
+            </button>
+          </div>
+        )}
+
+        {/* Search and Filters */}
+        <div className="mb-6 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search records..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
+                showFilters || Object.keys(filters).length > 0
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              <span>Filters</span>
+              {Object.keys(filters).length > 0 && (
+                <span className="bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs">
+                  {Object.keys(filters).length}
+                </span>
+              )}
+            </button>
+            {(Object.keys(filters).length > 0 || sortConfig.key) && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
+              >
+                <XCircle className="w-4 h-4" />
+                <span>Clear All</span>
+              </button>
+            )}
+          </div>
+
+          {showFilters && allFieldNames.length > 0 && (
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h4 className="font-semibold mb-3">Filter by Field:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {allFieldNames.map((field) => (
+                  <div key={field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {field}
+                    </label>
+                    <input
+                      type="text"
+                      value={filters[field] || ''}
+                      onChange={(e) => handleFilterChange(field, e.target.value)}
+                      placeholder={`Filter by ${field}...`}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Add/Edit Form */}
+        {(showAddForm || editingId) && (
+          <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingId ? 'Edit Record' : 'Add New Record'}
+            </h3>
+            
+            <div className="space-y-3">
+              {Object.keys(formData).map((key) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={key}
+                    readOnly
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-600"
+                  />
+                  <input
+                    type="text"
+                    value={formData[key]}
+                    onChange={(e) => updateFormField(key, e.target.value)}
+                    placeholder="Value"
+                    className="flex-2 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => removeField(key)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              
+              <button
+                onClick={addNewField}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                + Add Field
+              </button>
+            </div>
+
+            <div className="flex space-x-2 mt-4">
+              <button
+                onClick={editingId ? handleUpdate : handleAdd}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700"
+              >
+                <Save className="w-4 h-4" />
+                <span>{editingId ? 'Update' : 'Save'}</span>
+              </button>
+              <button
+                onClick={handleCancel}
+                className="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && records.length === 0 && (
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+            <p className="text-gray-500">Loading records...</p>
+          </div>
+        )}
+
+        {/* Category Dashboard - Show when no category is selected */}
+        {!selectedCategory && !loading && records.length > 0 && (
+          <CategoryDashboard
+            records={records}
+            onCategorySelect={(categoryId) => {
+              const categories = categoryService.getAll()
+              setSelectedCategory(categoryId)
+              setSelectedCategoryData(categories[categoryId])
+            }}
+          />
+        )}
+
+        {/* Records Table */}
+        {!loading && filteredRecords.length === 0 && records.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>No records found. Add your first record or upload an Excel file to get started!</p>
+          </div>
+        ) : !loading && filteredRecords.length === 0 && selectedCategory ? (
+          <div className="text-center py-12 text-gray-500">
+            <div>
+              <p className="font-semibold mb-2">No records found for the selected category.</p>
+              <p className="text-sm">
+                No records match category "{selectedCategoryData?.name}"
+              </p>
+              <p className="text-sm mt-2 text-gray-400">
+                Try selecting a different category or upload data for this category.
+              </p>
+            </div>
+          </div>
+        ) : !selectedCategory ? (
+          null
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  {allFieldNames.map((field) => (
+                    <th 
+                      key={field} 
+                      className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 select-none"
+                      onClick={() => handleSort(field)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span>{field}</span>
+                        {getSortIcon(field)}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    {allFieldNames.map((field) => (
+                      <td key={field} className="border border-gray-300 px-4 py-2 text-gray-700">
+                        {record[field] || '-'}
+                      </td>
+                    ))}
+                    <td className="border border-gray-300 px-4 py-2">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(record)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(record.id)}
+                          disabled={loading}
+                          className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="mt-4 text-sm text-gray-500">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span>Total records: {records.length}</span>
+            {selectedCategory && (
+              <span className="text-blue-600 font-medium">
+                Category: {selectedCategoryData?.name}
+              </span>
+            )}
+            {filteredRecords.length !== records.length && (
+              <span className="text-green-600">
+                Showing: {filteredRecords.length} filtered records
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
