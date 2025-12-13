@@ -19,25 +19,26 @@ app.use('/', recordsRoutes)
 
 // Export as Vercel serverless function handler
 // Vercel will call this handler for all /api/records/* routes
-export default async function handler(req, res) {
-  // Store original URL
+export default function handler(req, res) {
+  // Store original URL and path
   const originalUrl = req.url
+  const originalPath = req.path || ''
   
-  // Remove /api/records prefix from the URL since the router handles relative paths
-  // Handle both /api/records and /api/records/ paths
-  req.url = req.url.replace(/^\/api\/records\/?/, '') || '/'
-  
-  // Ensure req.url starts with / for Express routing
-  if (!req.url.startsWith('/')) {
-    req.url = '/' + req.url
+  // Extract the path after /api/records
+  // For /api/records, path will be empty, use '/'
+  // For /api/records/123, path will be '/123'
+  // For /api/records/bulk, path will be '/bulk'
+  let newPath = originalPath.replace(/^\/api\/records/, '') || '/'
+  if (!newPath.startsWith('/')) {
+    newPath = '/' + newPath
   }
   
+  // Update req.url and req.path for Express routing
+  const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''
+  req.url = newPath + queryString
+  req.path = newPath
+  req.originalUrl = newPath + queryString
+  
   // Handle the request with Express app
-  return new Promise((resolve) => {
-    app(req, res, () => {
-      resolve()
-    })
-  })
+  app(req, res)
 }
-
-
