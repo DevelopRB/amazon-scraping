@@ -32,7 +32,7 @@ You'll need to deploy:
 - **Name**: `gyan-letter-app-backend` (or any name you prefer)
 - **Region**: Choose closest to you (e.g., `Oregon (US West)`)
 - **Branch**: `main`
-- **Root Directory**: Leave **EMPTY** (or set to `./`)
+- **Root Directory**: **LEAVE COMPLETELY EMPTY** ⚠️ (Do NOT set to `./` or `src/` or anything else!)
 
 **Build & Deploy:**
 - **Runtime**: `Node`
