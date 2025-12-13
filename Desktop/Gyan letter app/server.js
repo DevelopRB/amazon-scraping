@@ -76,13 +76,10 @@ initDatabase()
     console.error('Please check your database connection and environment variables.')
   })
 
-// For Vercel serverless, export the app
-// For local development, start the server
-if (process.env.VERCEL) {
-  // Running on Vercel - export as serverless function
-  export default app
-} else {
-  // Running locally - start the server
+// Start the server for Render and local development
+// On Render, process.env.PORT is automatically set
+// On Vercel, this file won't be executed (serverless functions are used instead)
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`)
     console.log(`Initializing database...`)
