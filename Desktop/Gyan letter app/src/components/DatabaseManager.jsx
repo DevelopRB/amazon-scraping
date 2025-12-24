@@ -2007,11 +2007,11 @@ export default function DatabaseManager() {
           )}
         </div>
 
-        {/* Add/Edit Form */}
-        {(showAddForm || editingId) && (
+        {/* Add Form */}
+        {showAddForm && (
           <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
             <h3 className="text-lg font-semibold mb-4">
-              {editingId ? 'Edit Record' : 'Add New Record'}
+              Add New Record
             </h3>
             
             <div className="space-y-3">
@@ -2049,11 +2049,11 @@ export default function DatabaseManager() {
 
             <div className="flex space-x-2 mt-4">
               <button
-                onClick={editingId ? handleUpdate : handleAdd}
+                onClick={handleAdd}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700"
               >
                 <Save className="w-4 h-4" />
-                <span>{editingId ? 'Update' : 'Save'}</span>
+                <span>Save</span>
               </button>
               <button
                 onClick={handleCancel}
@@ -2127,34 +2127,69 @@ export default function DatabaseManager() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50">
-                    {allFieldNames.map((field) => (
-                      <td key={field} className="border border-gray-300 px-4 py-2 text-gray-700">
-                        {record[field] || '-'}
+                {filteredRecords.map((record) => {
+                  const isEditing = editingId === record.id
+                  return (
+                    <tr key={record.id} className={isEditing ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
+                      {allFieldNames.map((field) => (
+                        <td key={field} className="border border-gray-300 px-4 py-2 text-gray-700">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={formData[field] ?? ''}
+                              onChange={(e) => updateFormField(field, e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          ) : (
+                            record[field] || '-'
+                          )}
+                        </td>
+                      ))}
+                      <td className="border border-gray-300 px-4 py-2">
+                        <div className="flex space-x-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                onClick={handleUpdate}
+                                disabled={loading}
+                                className="text-green-600 hover:text-green-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                title="Save"
+                              >
+                                <Save className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={handleCancel}
+                                disabled={loading}
+                                className="text-gray-600 hover:text-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                title="Cancel"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEdit(record)}
+                                className="text-blue-600 hover:text-blue-800"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(record.id)}
+                                disabled={loading}
+                                className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
-                    ))}
-                    <td className="border border-gray-300 px-4 py-2">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(record)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(record.id)}
-                          disabled={loading}
-                          className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
