@@ -43,3 +43,5 @@ If after clicking Continue, the Root Directory field shows `"./"`:
 
 **The goal is to have Root Directory completely EMPTY after this step!**
 
+
+

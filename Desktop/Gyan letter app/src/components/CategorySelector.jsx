@@ -107,7 +107,7 @@ export default function CategorySelector({ selectedCategory, onCategoryChange, o
               {/* Default Categories */}
               <div className="mb-2">
                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Default Categories</div>
-                {['states', 'universities', 'emails'].map(catId => {
+                {['default', 'states', 'universities', 'emails'].map(catId => {
                   const cat = categories[catId]
                   if (!cat) return null
                   return (

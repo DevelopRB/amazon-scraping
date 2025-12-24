@@ -10,9 +10,13 @@ This guide will help you deploy your Gyan Letter App to Vercel so your team can 
 
 ---
 
-## Step 1: Set Up Cloud PostgreSQL Database
+## Step 1: Set Up Cloud PostgreSQL Database ⚠️ IMPORTANT
 
-Since Vercel doesn't provide PostgreSQL, you need a cloud database. Choose one:
+**You cannot use your local PostgreSQL database with Vercel!** Vercel serverless functions run in the cloud and cannot access `localhost`. You **must** set up a cloud PostgreSQL database.
+
+📖 **See `CLOUD_DATABASE_SETUP.md` for detailed instructions on setting up a cloud database.**
+
+Choose one of these cloud database providers:
 
 ### Option A: Neon (Recommended - Free Tier Available)
 1. Go to [neon.tech](https://neon.tech)
@@ -104,17 +108,18 @@ The API base URL will be automatically set based on environment:
    - Go to [vercel.com/dashboard](https://vercel.com/dashboard)
    - Select your project
    - Go to Settings → Environment Variables
-   - Add these variables:
+   - Add these variables (use your Neon credentials):
      ```
-     DB_HOST=your-database-host
-     DB_USER=your-database-user
-     DB_PASSWORD=your-database-password
-     DB_NAME=your-database-name
+     DB_HOST=ep-flat-bird-afkh2n4z-pooler.c-2.us-west-2.aws.neon.tech
+     DB_USER=neondb_owner
+     DB_PASSWORD=npg_1c6KUGfSRJvw
+     DB_NAME=neondb
      DB_PORT=5432
      PORT=5000
      NODE_ENV=production
      ```
-   - Use your cloud database credentials from Step 1
+   - **Important**: Make sure to select "Production", "Preview", and "Development" for each variable
+   - Click "Save" after adding each variable
 
 5. **Redeploy**:
    ```bash
@@ -129,11 +134,16 @@ The API base URL will be automatically set based on environment:
    - Select your GitHub repository
 
 2. **Configure Project**:
-   - Framework Preset: **Other**
-   - Root Directory: `./` (leave as is)
+   - Framework Preset: **Other** or **Vite**
+   - Root Directory: `./` (leave as is - **IMPORTANT: Make sure this is set correctly**)
    - Build Command: `npm run build`
    - Output Directory: `dist`
    - Install Command: `npm install`
+   
+   **⚠️ Important**: If you see "package.json not found" error:
+   - Make sure "Root Directory" is set to `./` (current directory)
+   - Or leave it empty (defaults to root)
+   - Do NOT set it to a subdirectory
 
 3. **Add Environment Variables**:
    - Before deploying, click "Environment Variables"

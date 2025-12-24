@@ -104,3 +104,5 @@ If you want to avoid subdirectory issues:
 
 **The key is to set Root Directory to the folder containing package.json!**
 
+
+

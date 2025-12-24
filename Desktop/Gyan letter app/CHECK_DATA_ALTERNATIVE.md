@@ -108,3 +108,6 @@ SELECT * FROM records WHERE data::text ILIKE '%search%';
 **Best for queries**: Use **pgAdmin** GUI tool
 
 
+
+
+

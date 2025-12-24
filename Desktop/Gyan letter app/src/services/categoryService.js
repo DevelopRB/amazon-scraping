@@ -16,6 +16,11 @@ export const categoryService = {
   // Get default categories
   getDefaultCategories() {
     return {
+      default: {
+        name: 'Default',
+        type: 'default',
+        items: []
+      },
       states: {
         name: 'Indian States',
         type: 'states',
@@ -64,7 +69,7 @@ export const categoryService = {
   deleteCategory(categoryId) {
     const categories = this.getAll()
     // Don't allow deleting default categories
-    if (['states', 'universities', 'emails'].includes(categoryId)) {
+    if (['default', 'states', 'universities', 'emails'].includes(categoryId)) {
       return false
     }
     delete categories[categoryId]
@@ -89,5 +94,8 @@ export const categoryService = {
     return categories[categoryId] || null
   }
 }
+
+
+
 
 

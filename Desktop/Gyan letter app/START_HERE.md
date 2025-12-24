@@ -91,3 +91,6 @@ npm run dev
 **Everything is configured! Just create the database, update the password, and start! 🎉**
 
 
+
+
+

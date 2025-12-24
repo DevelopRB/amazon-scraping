@@ -147,16 +147,21 @@ export default function DatabaseManager() {
 
     // Apply category filter - only show records matching the selected category
     if (selectedCategory) {
-      result = result.filter(record => {
-        // Check if record has category info
-        const recordCategoryId = record._categoryId
-        if (!recordCategoryId) {
-          // If record has no category, don't show it when a category is selected
-          return false
-        }
-        // Match category ID
-        return recordCategoryId === selectedCategory
-      })
+      // Special pseudo-category for uncategorized records
+      if (selectedCategory === '_uncategorized') {
+        result = result.filter(record => !record._categoryId)
+      } else {
+        result = result.filter(record => {
+          // Check if record has category info
+          const recordCategoryId = record._categoryId
+          if (!recordCategoryId) {
+            // If record has no category, don't show it when a specific category is selected
+            return false
+          }
+          // Match category ID
+          return recordCategoryId === selectedCategory
+        })
+      }
     } else {
       // If no category selected, show all records (including those without categories)
       // But if user wants to see only categorized records, they can select a category
@@ -610,8 +615,15 @@ export default function DatabaseManager() {
         })
         // Add category information to each record
         if (selectedCategory) {
+          // User selected a specific category
           record._categoryId = selectedCategory
           record._categoryName = selectedCategoryData?.name || ''
+        } else {
+          // No category selected: assign to Default category
+          const categories = categoryService.getAll()
+          const defaultCategory = categories.default || { name: 'Default' }
+          record._categoryId = 'default'
+          record._categoryName = defaultCategory.name
         }
         return record
       })
@@ -671,11 +683,20 @@ export default function DatabaseManager() {
       alert('Please add at least one field')
       return
     }
+
+    // Ensure a default category is always set for manually added records
+    const dataToSave = { ...formData }
+    if (!dataToSave._categoryId) {
+      const categories = categoryService.getAll()
+      const defaultCategory = categories.default || { name: 'Default' }
+      dataToSave._categoryId = 'default'
+      dataToSave._categoryName = defaultCategory.name
+    }
     
     setLoading(true)
     setError(null)
     try {
-      await databaseService.add(formData)
+      await databaseService.add(dataToSave)
       setFormData({})
       setShowAddForm(false)
       await loadRecords()
@@ -1896,9 +1917,15 @@ export default function DatabaseManager() {
         {selectedCategory && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-blue-800">
-                <strong>Filtering by:</strong> {selectedCategoryData?.name}
-              </span>
+              {selectedCategory === '_uncategorized' ? (
+                <span className="text-sm text-blue-800">
+                  <strong>Filtering by:</strong> Uncategorized Records
+                </span>
+              ) : (
+                <span className="text-sm text-blue-800">
+                  <strong>Filtering by:</strong> {selectedCategoryData?.name}
+                </span>
+              )}
               <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                 {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} shown
               </span>
@@ -2046,7 +2073,7 @@ export default function DatabaseManager() {
           </div>
         )}
 
-        {/* Category Dashboard - Show when no category is selected */}
+        {/* Category Dashboard - Show when no real category is selected */}
         {!selectedCategory && !loading && records.length > 0 && (
           <CategoryDashboard
             records={records}

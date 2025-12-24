@@ -182,15 +182,21 @@ export default function CategoryDashboard({ records, onCategorySelect }) {
       {categoryStats.uncategorized > 0 && (
         <div className="mt-6">
           <div
-            className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-all cursor-pointer group"
+            onClick={() => onCategorySelect?.('_uncategorized')}
+            className="bg-gray-50 border-2 border-gray-300 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
               <div>
-                <h5 className="text-lg font-bold text-gray-700 mb-1">Uncategorized Records</h5>
+                <h5 className="text-lg font-bold text-gray-700 mb-1 group-hover:text-blue-600">
+                  Uncategorized Records
+                </h5>
                 <p className="text-2xl font-bold text-gray-600">{categoryStats.uncategorized}</p>
                 <p className="text-sm text-gray-500 mt-1">records without category</p>
+                <p className="text-xs text-blue-600 mt-2 group-hover:underline">
+                  Click to view these records
+                </p>
               </div>
-              <FileText className="w-8 h-8 text-gray-400" />
+              <FileText className="w-8 h-8 text-gray-400 group-hover:text-blue-500" />
             </div>
           </div>
         </div>
@@ -198,5 +204,8 @@ export default function CategoryDashboard({ records, onCategorySelect }) {
     </div>
   )
 }
+
+
+
 
 
