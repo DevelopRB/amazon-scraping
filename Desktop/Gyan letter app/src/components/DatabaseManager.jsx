@@ -679,13 +679,25 @@ export default function DatabaseManager() {
   }
 
   const handleAdd = async () => {
-    if (Object.keys(formData).length === 0) {
-      alert('Please add at least one field')
+    // Prepare data to save - trim values but keep all fields
+    const dataToSave = {}
+    let hasAtLeastOneValue = false
+    
+    Object.keys(formData).forEach(key => {
+      const value = formData[key] ? formData[key].trim() : ''
+      dataToSave[key] = value
+      if (value !== '') {
+        hasAtLeastOneValue = true
+      }
+    })
+
+    // Check if at least one field has a value
+    if (!hasAtLeastOneValue) {
+      alert('Please enter at least one value')
       return
     }
 
     // Ensure a default category is always set for manually added records
-    const dataToSave = { ...formData }
     if (!dataToSave._categoryId) {
       const categories = categoryService.getAll()
       const defaultCategory = categories.default || { name: 'Default' }
@@ -785,6 +797,30 @@ export default function DatabaseManager() {
     setEditingId(null)
     setShowAddForm(false)
     setFormData({})
+  }
+
+  // Get all field names for Add Form (from existing records or REQUIRED_COLUMNS)
+  const getAddFormFieldNames = () => {
+    const existingFields = getFieldNames()
+    if (existingFields.length > 0) {
+      // Use fields from existing records
+      return existingFields.filter(field => 
+        !field.startsWith('_') // Exclude internal fields like _categoryId, _categoryName
+      )
+    }
+    // If no records exist, use REQUIRED_COLUMNS
+    return REQUIRED_COLUMNS
+  }
+
+  // Initialize form data with all fields when opening Add Form
+  const initializeAddForm = () => {
+    const fieldNames = getAddFormFieldNames()
+    const initialData = {}
+    fieldNames.forEach(field => {
+      initialData[field] = ''
+    })
+    setFormData(initialData)
+    setShowAddForm(true)
   }
 
   const updateFormField = (key, value) => {
@@ -1251,7 +1287,7 @@ export default function DatabaseManager() {
               />
             </label>
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={initializeAddForm}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
@@ -2014,37 +2050,37 @@ export default function DatabaseManager() {
               Add New Record
             </h3>
             
-            <div className="space-y-3">
-              {Object.keys(formData).map((key) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={key}
-                    readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-600"
-                  />
-                  <input
-                    type="text"
-                    value={formData[key]}
-                    onChange={(e) => updateFormField(key, e.target.value)}
-                    placeholder="Value"
-                    className="flex-2 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={() => removeField(key)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              
-              <button
-                onClick={addNewField}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-              >
-                + Add Field
-              </button>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse bg-white rounded-lg shadow-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
+                      Field
+                    </th>
+                    <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
+                      Value
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getAddFormFieldNames().map((field) => (
+                    <tr key={field} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-2 text-gray-700 font-medium bg-gray-50">
+                        {field}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        <input
+                          type="text"
+                          value={formData[field] || ''}
+                          onChange={(e) => updateFormField(field, e.target.value)}
+                          placeholder={`Enter ${field}...`}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <div className="flex space-x-2 mt-4">
