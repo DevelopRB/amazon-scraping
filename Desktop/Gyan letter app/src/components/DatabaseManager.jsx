@@ -15,6 +15,7 @@ const REQUIRED_COLUMNS = [
   'Subcategory',
   'Specialization',
   'University Name',
+  'University',
   'University Code / Short Code',
   'Address-1',
   'Adddress-2',
@@ -72,7 +73,8 @@ const REQUIRED_COLUMNS = [
   'Additional Roles',
   'ID Proof',
   'Certificates',
-  'Status'
+  'Status',
+  'File Name'
 ]
 
 export default function DatabaseManager() {
