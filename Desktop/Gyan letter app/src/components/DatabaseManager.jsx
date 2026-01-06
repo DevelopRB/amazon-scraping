@@ -895,6 +895,11 @@ export default function DatabaseManager() {
   }
 
   const handleDeleteAll = () => {
+    // Check if a category is selected
+    if (!selectedCategory) {
+      alert('Please select a category first to delete records. The Delete All button only deletes records in the selected category.')
+      return
+    }
     setDeleteAllConfirmText('')
     setDeleteAllConfirm(true)
   }
@@ -906,19 +911,68 @@ export default function DatabaseManager() {
       return
     }
 
+    // Ensure a category is selected
+    if (!selectedCategory) {
+      alert('Please select a category first to delete records.')
+      setDeleteAllConfirm(false)
+      setDeleteAllConfirmText('')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      await apiService.deleteAll()
-      console.log('✓ All records deleted successfully')
+      // Get records to delete based on selected category
+      let recordsToDelete = []
+      
+      if (selectedCategory === '_uncategorized') {
+        // Delete uncategorized records (records without category)
+        recordsToDelete = records.filter(record => !record._categoryId)
+      } else {
+        // Delete records in the selected category
+        recordsToDelete = records.filter(record => record._categoryId === selectedCategory)
+      }
+
+      if (recordsToDelete.length === 0) {
+        alert('No records found in this category to delete.')
+        setDeleteAllConfirm(false)
+        setDeleteAllConfirmText('')
+        setLoading(false)
+        return
+      }
+
+      // Delete records one by one
+      let deletedCount = 0
+      let failedCount = 0
+
+      for (const record of recordsToDelete) {
+        try {
+          await databaseService.delete(record.id)
+          deletedCount++
+        } catch (err) {
+          console.error(`Failed to delete record ${record.id}:`, err)
+          failedCount++
+        }
+      }
+
+      console.log(`✓ Deleted ${deletedCount} records from category`)
+      if (failedCount > 0) {
+        console.warn(`⚠ Failed to delete ${failedCount} records`)
+      }
+
       setDeleteAllConfirm(false)
       setDeleteAllConfirmText('')
       await loadRecords()
-      alert('All records have been deleted successfully!')
+      
+      if (failedCount > 0) {
+        alert(`Deleted ${deletedCount} records successfully.\n\nFailed to delete ${failedCount} records. Please check the console for details.`)
+      } else {
+        alert(`Successfully deleted ${deletedCount} record(s) from ${selectedCategory === '_uncategorized' ? 'Uncategorized Records' : selectedCategoryData?.name || 'selected category'}!`)
+      }
     } catch (err) {
-      setError('Failed to delete all records. Please try again.')
-      console.error('Error deleting all records:', err)
-      alert('Failed to delete all records. Please check the console for details.')
+      setError('Failed to delete records. Please try again.')
+      console.error('Error deleting records:', err)
+      alert('Failed to delete records. Please check the console for details.')
     } finally {
       setLoading(false)
     }
@@ -1535,7 +1589,7 @@ export default function DatabaseManager() {
         )}
 
         {/* Delete All Confirmation Modal */}
-        {deleteAllConfirm && (
+        {deleteAllConfirm && selectedCategory && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
               <div className="flex items-center space-x-3 mb-4">
@@ -1544,11 +1598,16 @@ export default function DatabaseManager() {
               </div>
               <div className="mb-6">
                 <p className="text-gray-700 font-semibold mb-2">
-                  ⚠️ WARNING: This will delete ALL {records.length} records!
+                  ⚠️ WARNING: This will delete ALL {filteredRecords.length} record(s) in the category "{selectedCategory === '_uncategorized' ? 'Uncategorized Records' : selectedCategoryData?.name || selectedCategory}"!
                 </p>
                 <p className="text-gray-600">
-                  This action cannot be undone. All data will be permanently deleted from the database.
+                  This action cannot be undone. All records in this category will be permanently deleted from the database.
                 </p>
+                {selectedCategory && (
+                  <p className="text-sm text-blue-600 mt-2">
+                    Category: <strong>{selectedCategory === '_uncategorized' ? 'Uncategorized Records' : selectedCategoryData?.name || selectedCategory}</strong>
+                  </p>
+                )}
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                 <p className="text-red-700 text-sm font-medium mb-2">
@@ -2583,11 +2642,12 @@ export default function DatabaseManager() {
             </div>
             <button
               onClick={handleDeleteAll}
-              disabled={loading || records.length === 0}
+              disabled={loading || records.length === 0 || !selectedCategory}
               className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              title={!selectedCategory ? "Please select a category first to delete records" : `Delete all records in ${selectedCategory === '_uncategorized' ? 'Uncategorized Records' : selectedCategoryData?.name || 'selected category'}`}
             >
               <Trash2 className="w-4 h-4" />
-              <span>Delete All</span>
+              <span>Delete All {selectedCategory && `(${selectedCategory === '_uncategorized' ? 'Uncategorized' : selectedCategoryData?.name || ''})`}</span>
             </button>
           </div>
         </div>
