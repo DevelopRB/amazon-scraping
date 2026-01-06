@@ -801,17 +801,25 @@ export default function DatabaseManager() {
     setFormData({})
   }
 
-  // Get all field names for Add Form (from existing records or REQUIRED_COLUMNS)
+  // Get all field names for Add Form (always include REQUIRED_COLUMNS, merge with existing fields)
   const getAddFormFieldNames = () => {
-    const existingFields = getFieldNames()
-    if (existingFields.length > 0) {
-      // Use fields from existing records
-      return existingFields.filter(field => 
-        !field.startsWith('_') // Exclude internal fields like _categoryId, _categoryName
-      )
-    }
-    // If no records exist, use REQUIRED_COLUMNS
-    return REQUIRED_COLUMNS
+    const existingFields = getFieldNames().filter(field => 
+      !field.startsWith('_') // Exclude internal fields like _categoryId, _categoryName
+    )
+    
+    // Always start with REQUIRED_COLUMNS to ensure all required fields are present
+    const fieldSet = new Set(REQUIRED_COLUMNS)
+    
+    // Add any additional fields from existing records that aren't in REQUIRED_COLUMNS
+    existingFields.forEach(field => {
+      fieldSet.add(field)
+    })
+    
+    // Return as array, maintaining REQUIRED_COLUMNS order first, then additional fields
+    const requiredFields = REQUIRED_COLUMNS.filter(field => fieldSet.has(field))
+    const additionalFields = Array.from(fieldSet).filter(field => !REQUIRED_COLUMNS.includes(field))
+    
+    return [...requiredFields, ...additionalFields]
   }
 
   // Initialize form data with all fields when opening Add Form
