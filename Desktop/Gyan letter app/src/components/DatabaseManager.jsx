@@ -93,6 +93,7 @@ export default function DatabaseManager() {
   const [error, setError] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false)
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('')
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [selectedCategoryData, setSelectedCategoryData] = useState(null)
   const [validationErrors, setValidationErrors] = useState(null)
@@ -857,16 +858,24 @@ export default function DatabaseManager() {
   }
 
   const handleDeleteAll = () => {
+    setDeleteAllConfirmText('')
     setDeleteAllConfirm(true)
   }
 
   const confirmDeleteAll = async () => {
+    // Check if user typed "delete all" correctly
+    if (deleteAllConfirmText.toLowerCase().trim() !== 'delete all') {
+      alert('Please type "delete all" to confirm')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
       await apiService.deleteAll()
       console.log('✓ All records deleted successfully')
       setDeleteAllConfirm(false)
+      setDeleteAllConfirmText('')
       await loadRecords()
       alert('All records have been deleted successfully!')
     } catch (err) {
@@ -880,6 +889,7 @@ export default function DatabaseManager() {
 
   const cancelDeleteAll = () => {
     setDeleteAllConfirm(false)
+    setDeleteAllConfirmText('')
   }
 
   const handleCancel = () => {
@@ -1444,14 +1454,6 @@ export default function DatabaseManager() {
                   <Filter className="w-4 h-4" />
                   <span>Advanced Filter & Export</span>
                 </button>
-                <button
-                  onClick={handleDeleteAll}
-                  disabled={loading}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete All</span>
-                </button>
               </>
             )}
           </div>
@@ -1511,15 +1513,23 @@ export default function DatabaseManager() {
                   This action cannot be undone. All data will be permanently deleted from the database.
                 </p>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
-                <p className="text-red-700 text-sm font-medium">
-                  Are you absolutely sure you want to proceed?
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <p className="text-red-700 text-sm font-medium mb-2">
+                  To confirm, please type <strong>"delete all"</strong> below:
                 </p>
+                <input
+                  type="text"
+                  value={deleteAllConfirmText}
+                  onChange={(e) => setDeleteAllConfirmText(e.target.value)}
+                  placeholder="Type 'delete all' to confirm"
+                  className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  autoFocus
+                />
               </div>
               <div className="flex space-x-3">
                 <button
                   onClick={confirmDeleteAll}
-                  disabled={loading}
+                  disabled={loading || deleteAllConfirmText.toLowerCase().trim() !== 'delete all'}
                   className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {loading ? (
@@ -2468,19 +2478,30 @@ export default function DatabaseManager() {
           </div>
         )}
 
-        <div className="mt-4 text-sm text-gray-500">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <span>Total records: {records.length}</span>
-            {selectedCategory && (
-              <span className="text-blue-600 font-medium">
-                Category: {selectedCategoryData?.name}
-              </span>
-            )}
-            {filteredRecords.length !== records.length && (
-              <span className="text-green-600">
-                Showing: {filteredRecords.length} filtered records
-              </span>
-            )}
+        {/* Footer */}
+        <div className="mt-8 pt-6 border-t border-gray-300">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span>Total records: {records.length}</span>
+              {selectedCategory && (
+                <span className="text-blue-600 font-medium">
+                  Category: {selectedCategoryData?.name}
+                </span>
+              )}
+              {filteredRecords.length !== records.length && (
+                <span className="text-green-600">
+                  Showing: {filteredRecords.length} filtered records
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleDeleteAll}
+              disabled={loading || records.length === 0}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete All</span>
+            </button>
           </div>
         </div>
       </div>
