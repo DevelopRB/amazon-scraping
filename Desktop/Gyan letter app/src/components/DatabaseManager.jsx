@@ -840,14 +840,29 @@ export default function DatabaseManager() {
   const addNewField = () => {
     const fieldName = prompt('Enter field name:')
     if (fieldName && fieldName.trim()) {
-      updateFormField(fieldName.trim(), '')
+      const trimmedName = fieldName.trim()
+      // Check if field already exists
+      if (formData.hasOwnProperty(trimmedName)) {
+        alert('This field already exists')
+        return
+      }
+      updateFormField(trimmedName, '')
     }
   }
 
   const removeField = (key) => {
-    const newData = { ...formData }
-    delete newData[key]
-    setFormData(newData)
+    // Don't allow removing if it's the only field
+    const fieldCount = Object.keys(formData).filter(k => !k.startsWith('_')).length
+    if (fieldCount <= 1) {
+      alert('You must have at least one field')
+      return
+    }
+    
+    if (window.confirm(`Are you sure you want to remove the field "${key}"?`)) {
+      const newData = { ...formData }
+      delete newData[key]
+      setFormData(newData)
+    }
   }
 
   const getFieldNames = () => {
@@ -2070,10 +2085,15 @@ export default function DatabaseManager() {
                     <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
                       Value
                     </th>
+                    <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700 w-20">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {getAddFormFieldNames().map((field) => (
+                  {Object.keys(formData)
+                    .filter(field => !field.startsWith('_')) // Exclude internal fields
+                    .map((field) => (
                     <tr key={field} className="hover:bg-gray-50">
                       <td className="border border-gray-300 px-4 py-2 text-gray-700 font-medium bg-gray-50">
                         {field}
@@ -2087,26 +2107,45 @@ export default function DatabaseManager() {
                           className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        <button
+                          onClick={() => removeField(field)}
+                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                          title="Delete field"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="flex space-x-2 mt-4">
+            <div className="flex items-center justify-between mt-4">
               <button
-                onClick={handleAdd}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700"
+                onClick={addNewField}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700"
               >
-                <Save className="w-4 h-4" />
-                <span>Save</span>
+                <Plus className="w-4 h-4" />
+                <span>Add Field</span>
               </button>
-              <button
-                onClick={handleCancel}
-                className="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500"
-              >
-                Cancel
-              </button>
+              
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleAdd}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save</span>
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
