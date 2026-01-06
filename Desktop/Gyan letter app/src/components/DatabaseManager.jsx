@@ -468,7 +468,7 @@ export default function DatabaseManager() {
           return
         }
 
-        // Map rows to objects with all headers
+        // Map rows to objects with all headers, then reorder according to REQUIRED_COLUMNS
         const previewData = allRows.map((row) => {
           const obj = {}
           headers.forEach((header, colIndex) => {
@@ -482,7 +482,28 @@ export default function DatabaseManager() {
               obj[header] = String(cellValue)
             }
           })
-          return obj
+          // Reorder fields according to REQUIRED_COLUMNS order
+          return reorderFieldsByRequiredColumns(obj)
+        })
+
+        // Reorder headers to match REQUIRED_COLUMNS order
+        const reorderedHeaders = []
+        const headerSet = new Set(headers)
+        
+        // First add REQUIRED_COLUMNS in order (if they exist in headers)
+        REQUIRED_COLUMNS.forEach(field => {
+          if (headerSet.has(field)) {
+            reorderedHeaders.push(field)
+            headerSet.delete(field)
+          }
+        })
+        
+        // Then add remaining headers
+        headers.forEach(header => {
+          if (headerSet.has(header)) {
+            reorderedHeaders.push(header)
+            headerSet.delete(header)
+          }
         })
 
         console.log(`Excel file parsed:`, {
@@ -490,11 +511,11 @@ export default function DatabaseManager() {
           totalRowsInSheet: totalRowsInSheet - 1, // Excluding header
           rowsInJsonData: jsonData.length - 1,
           validRows: allRows.length,
-          headers: headers.length
+          headers: reorderedHeaders.length
         })
 
         setExcelPreview({
-          headers,
+          headers: reorderedHeaders,
           data: previewData,
           fileName: file.name,
           totalRows: totalRowsInSheet - 1, // Subtract header row
@@ -548,7 +569,7 @@ export default function DatabaseManager() {
       }
     }
 
-    // Map rows to objects with all headers
+    // Map rows to objects with all headers, then reorder according to REQUIRED_COLUMNS
     const previewData = allRows.map((row) => {
       const obj = {}
       headers.forEach((header, colIndex) => {
@@ -562,11 +583,32 @@ export default function DatabaseManager() {
           obj[header] = String(cellValue)
         }
       })
-      return obj
+      // Reorder fields according to REQUIRED_COLUMNS order
+      return reorderFieldsByRequiredColumns(obj)
+    })
+
+    // Reorder headers to match REQUIRED_COLUMNS order
+    const reorderedHeaders = []
+    const headerSet = new Set(headers)
+    
+    // First add REQUIRED_COLUMNS in order (if they exist in headers)
+    REQUIRED_COLUMNS.forEach(field => {
+      if (headerSet.has(field)) {
+        reorderedHeaders.push(field)
+        headerSet.delete(field)
+      }
+    })
+    
+    // Then add remaining headers
+    headers.forEach(header => {
+      if (headerSet.has(header)) {
+        reorderedHeaders.push(header)
+        headerSet.delete(header)
+      }
     })
 
     setExcelPreview({
-      headers,
+      headers: reorderedHeaders,
       data: previewData,
       fileName,
       totalRows: totalRowsInSheet - 1,
@@ -627,7 +669,8 @@ export default function DatabaseManager() {
           record._categoryId = 'default'
           record._categoryName = defaultCategory.name
         }
-        return record
+        // Reorder fields according to REQUIRED_COLUMNS order
+        return reorderFieldsByRequiredColumns(record)
       })
 
       console.log('✅ Data prepared for import')
@@ -707,10 +750,13 @@ export default function DatabaseManager() {
       dataToSave._categoryName = defaultCategory.name
     }
     
+    // Reorder fields according to REQUIRED_COLUMNS order before saving
+    const reorderedDataToSave = reorderFieldsByRequiredColumns(dataToSave)
+    
     setLoading(true)
     setError(null)
     try {
-      await databaseService.add(dataToSave)
+      await databaseService.add(reorderedDataToSave)
       setFormData({})
       setShowAddForm(false)
       await loadRecords()
@@ -799,6 +845,36 @@ export default function DatabaseManager() {
     setEditingId(null)
     setShowAddForm(false)
     setFormData({})
+  }
+
+  // Helper function to reorder object keys according to REQUIRED_COLUMNS order
+  const reorderFieldsByRequiredColumns = (obj) => {
+    const orderedObj = {}
+    const remainingFields = new Set(Object.keys(obj))
+    
+    // First, add all REQUIRED_COLUMNS in order (if they exist in obj)
+    REQUIRED_COLUMNS.forEach(field => {
+      if (remainingFields.has(field)) {
+        orderedObj[field] = obj[field]
+        remainingFields.delete(field)
+      }
+    })
+    
+    // Then add any remaining fields (not in REQUIRED_COLUMNS)
+    remainingFields.forEach(field => {
+      if (!field.startsWith('_')) { // Exclude internal fields
+        orderedObj[field] = obj[field]
+      }
+    })
+    
+    // Finally, add internal fields (like _categoryId, _categoryName)
+    Object.keys(obj).forEach(field => {
+      if (field.startsWith('_') && !orderedObj.hasOwnProperty(field)) {
+        orderedObj[field] = obj[field]
+      }
+    })
+    
+    return orderedObj
   }
 
   // Get all field names for Add Form (always include REQUIRED_COLUMNS, merge with existing fields)
@@ -2091,33 +2167,37 @@ export default function DatabaseManager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.keys(formData)
-                    .filter(field => !field.startsWith('_')) // Exclude internal fields
-                    .map((field) => (
-                    <tr key={field} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2 text-gray-700 font-medium bg-gray-50">
-                        {field}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        <input
-                          type="text"
-                          value={formData[field] || ''}
-                          onChange={(e) => updateFormField(field, e.target.value)}
-                          placeholder={`Enter ${field}...`}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        <button
-                          onClick={() => removeField(field)}
-                          className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
-                          title="Delete field"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    // Reorder formData fields according to REQUIRED_COLUMNS order
+                    const orderedFormData = reorderFieldsByRequiredColumns(formData)
+                    return Object.keys(orderedFormData)
+                      .filter(field => !field.startsWith('_')) // Exclude internal fields
+                      .map((field) => (
+                      <tr key={field} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 px-4 py-2 text-gray-700 font-medium bg-gray-50">
+                          {field}
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <input
+                            type="text"
+                            value={formData[field] || ''}
+                            onChange={(e) => updateFormField(field, e.target.value)}
+                            placeholder={`Enter ${field}...`}
+                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="border border-gray-300 px-4 py-2">
+                          <button
+                            onClick={() => removeField(field)}
+                            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                            title="Delete field"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  })()}
                 </tbody>
               </table>
             </div>
