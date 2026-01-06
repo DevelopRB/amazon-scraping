@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, Plus, Edit2, Trash2, X, Save } from 'lucide-react'
 import { categoryService } from '../services/categoryService'
 
@@ -10,10 +10,32 @@ export default function CategorySelector({ selectedCategory, onCategoryChange, o
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState(null)
   const [categoryType, setCategoryType] = useState('custom')
+  const dropdownRef = useRef(null)
+  const buttonRef = useRef(null)
 
   useEffect(() => {
     loadCategories()
   }, [])
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showDropdown &&
+        dropdownRef.current &&
+        buttonRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        !buttonRef.current.contains(event.target)
+      ) {
+        setShowDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDropdown])
 
   const loadCategories = () => {
     const cats = categoryService.getAll()
@@ -91,6 +113,7 @@ export default function CategorySelector({ selectedCategory, onCategoryChange, o
       
       <div className="relative">
         <button
+          ref={buttonRef}
           type="button"
           onClick={() => setShowDropdown(!showDropdown)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:bg-gray-50"
@@ -102,7 +125,10 @@ export default function CategorySelector({ selectedCategory, onCategoryChange, o
         </button>
 
         {showDropdown && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-auto">
+          <div 
+            ref={dropdownRef}
+            className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-96 overflow-auto"
+          >
             <div className="p-2">
               {/* Default Categories */}
               <div className="mb-2">
