@@ -121,6 +121,9 @@ export default function DatabaseManager() {
   const [exportReady, setExportReady] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saveModalCategory, setSaveModalCategory] = useState(null)
+  const [saveModalFileName, setSaveModalFileName] = useState('')
 
   useEffect(() => {
     loadRecords()
@@ -723,7 +726,7 @@ export default function DatabaseManager() {
     }
   }
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     // Prepare data to save - trim values but keep all fields
     const dataToSave = {}
     let hasAtLeastOneValue = false
@@ -742,13 +745,40 @@ export default function DatabaseManager() {
       return
     }
 
-    // Ensure a default category is always set for manually added records
-    if (!dataToSave._categoryId) {
-      const categories = categoryService.getAll()
-      const defaultCategory = categories.default || { name: 'Default' }
-      dataToSave._categoryId = 'default'
-      dataToSave._categoryName = defaultCategory.name
+    // Show save modal to get category and file name
+    setSaveModalCategory(null)
+    setSaveModalFileName('')
+    setShowSaveModal(true)
+  }
+
+  const handleSaveConfirm = async () => {
+    // Validate category selection
+    if (!saveModalCategory) {
+      alert('Please select a category')
+      return
     }
+
+    // Validate file name
+    if (!saveModalFileName || !saveModalFileName.trim()) {
+      alert('Please enter a file name')
+      return
+    }
+
+    // Prepare data to save - trim values but keep all fields
+    const dataToSave = {}
+    Object.keys(formData).forEach(key => {
+      const value = formData[key] ? formData[key].trim() : ''
+      dataToSave[key] = value
+    })
+
+    // Set category information
+    const categories = categoryService.getAll()
+    const selectedCategoryData = categories[saveModalCategory]
+    dataToSave._categoryId = saveModalCategory
+    dataToSave._categoryName = selectedCategoryData?.name || ''
+
+    // Set file name
+    dataToSave['File Name'] = saveModalFileName.trim()
     
     // Reorder fields according to REQUIRED_COLUMNS order before saving
     const reorderedDataToSave = reorderFieldsByRequiredColumns(dataToSave)
@@ -759,13 +789,24 @@ export default function DatabaseManager() {
       await databaseService.add(reorderedDataToSave)
       setFormData({})
       setShowAddForm(false)
+      setShowSaveModal(false)
+      setSaveModalCategory(null)
+      setSaveModalFileName('')
       await loadRecords()
+      alert('Record saved successfully!')
     } catch (err) {
       setError('Failed to add record. Please try again.')
       console.error('Error adding record:', err)
+      alert('Failed to add record. Please try again.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSaveCancel = () => {
+    setShowSaveModal(false)
+    setSaveModalCategory(null)
+    setSaveModalFileName('')
   }
 
   const handleEdit = (record) => {
@@ -1506,6 +1547,73 @@ export default function DatabaseManager() {
         )}
 
         {/* Validation Error Modal */}
+        {/* Save Confirmation Modal */}
+        {showSaveModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Save Record
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Category Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Category <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={saveModalCategory || ''}
+                      onChange={(e) => setSaveModalCategory(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">-- Select Category --</option>
+                      {Object.entries(categoryService.getAll()).map(([id, category]) => (
+                        <option key={id} value={id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* File Name Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    File Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={saveModalFileName}
+                    onChange={(e) => setSaveModalFileName(e.target.value)}
+                    placeholder="Enter file name..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  onClick={handleSaveConfirm}
+                  disabled={loading}
+                  className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center space-x-2 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Record</span>
+                </button>
+                <button
+                  onClick={handleSaveCancel}
+                  disabled={loading}
+                  className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showValidationModal && ((validationErrors && validationErrors.length > 0) || (rowValidationErrors && rowValidationErrors.length > 0)) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
