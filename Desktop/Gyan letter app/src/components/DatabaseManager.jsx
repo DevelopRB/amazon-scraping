@@ -125,6 +125,8 @@ export default function DatabaseManager() {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [saveModalCategory, setSaveModalCategory] = useState(null)
   const [saveModalFileName, setSaveModalFileName] = useState('')
+  const [saveModalCategoryMode, setSaveModalCategoryMode] = useState('existing') // 'existing' or 'new'
+  const [saveModalNewCategoryName, setSaveModalNewCategoryName] = useState('')
 
   useEffect(() => {
     loadRecords()
@@ -749,14 +751,41 @@ export default function DatabaseManager() {
     // Show save modal to get category and file name
     setSaveModalCategory(null)
     setSaveModalFileName('')
+    setSaveModalCategoryMode('existing')
+    setSaveModalNewCategoryName('')
     setShowSaveModal(true)
   }
 
   const handleSaveConfirm = async () => {
-    // Validate category selection
-    if (!saveModalCategory) {
-      alert('Please select a category')
-      return
+    let categoryId = null
+    let categoryName = ''
+
+    // Handle category selection or creation
+    if (saveModalCategoryMode === 'existing') {
+      // Validate existing category selection
+      if (!saveModalCategory) {
+        alert('Please select a category')
+        return
+      }
+      categoryId = saveModalCategory
+      const categories = categoryService.getAll()
+      const selectedCategoryData = categories[categoryId]
+      categoryName = selectedCategoryData?.name || ''
+    } else {
+      // Validate new category name
+      if (!saveModalNewCategoryName || !saveModalNewCategoryName.trim()) {
+        alert('Please enter a new category name')
+        return
+      }
+      // Create new category
+      try {
+        categoryId = categoryService.addCategory(saveModalNewCategoryName.trim(), 'custom')
+        categoryName = saveModalNewCategoryName.trim()
+      } catch (err) {
+        alert('Failed to create category. Please try again.')
+        console.error('Error creating category:', err)
+        return
+      }
     }
 
     // Validate file name
@@ -773,10 +802,8 @@ export default function DatabaseManager() {
     })
 
     // Set category information
-    const categories = categoryService.getAll()
-    const selectedCategoryData = categories[saveModalCategory]
-    dataToSave._categoryId = saveModalCategory
-    dataToSave._categoryName = selectedCategoryData?.name || ''
+    dataToSave._categoryId = categoryId
+    dataToSave._categoryName = categoryName
 
     // Set file name
     dataToSave['File Name'] = saveModalFileName.trim()
@@ -793,6 +820,8 @@ export default function DatabaseManager() {
       setShowSaveModal(false)
       setSaveModalCategory(null)
       setSaveModalFileName('')
+      setSaveModalCategoryMode('existing')
+      setSaveModalNewCategoryName('')
       await loadRecords()
       alert('Record saved successfully!')
     } catch (err) {
@@ -808,6 +837,14 @@ export default function DatabaseManager() {
     setShowSaveModal(false)
     setSaveModalCategory(null)
     setSaveModalFileName('')
+    setSaveModalCategoryMode('existing')
+    setSaveModalNewCategoryName('')
+  }
+
+  const handleSaveLater = () => {
+    // Close the form without saving
+    setShowAddForm(false)
+    setFormData({})
   }
 
   const handleEdit = (record) => {
@@ -1566,25 +1603,65 @@ export default function DatabaseManager() {
               </h3>
               
               <div className="space-y-4">
-                {/* Category Selection */}
+                {/* Category Mode Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Category <span className="text-red-500">*</span>
+                    Category <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      value={saveModalCategory || ''}
-                      onChange={(e) => setSaveModalCategory(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">-- Select Category --</option>
-                      {Object.entries(categoryService.getAll()).map(([id, category]) => (
-                        <option key={id} value={id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex space-x-4 mb-3">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="categoryMode"
+                        value="existing"
+                        checked={saveModalCategoryMode === 'existing'}
+                        onChange={(e) => setSaveModalCategoryMode(e.target.value)}
+                        className="text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">Select Existing</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="categoryMode"
+                        value="new"
+                        checked={saveModalCategoryMode === 'new'}
+                        onChange={(e) => setSaveModalCategoryMode(e.target.value)}
+                        className="text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">Add New Category</span>
+                    </label>
                   </div>
+
+                  {/* Existing Category Selection */}
+                  {saveModalCategoryMode === 'existing' && (
+                    <div className="relative">
+                      <select
+                        value={saveModalCategory || ''}
+                        onChange={(e) => setSaveModalCategory(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">-- Select Category --</option>
+                        {Object.entries(categoryService.getAll()).map(([id, category]) => (
+                          <option key={id} value={id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* New Category Input */}
+                  {saveModalCategoryMode === 'new' && (
+                    <input
+                      type="text"
+                      value={saveModalNewCategoryName}
+                      onChange={(e) => setSaveModalNewCategoryName(e.target.value)}
+                      placeholder="Enter new category name..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      autoFocus
+                    />
+                  )}
                 </div>
 
                 {/* File Name Input */}
@@ -1598,7 +1675,7 @@ export default function DatabaseManager() {
                     onChange={(e) => setSaveModalFileName(e.target.value)}
                     placeholder="Enter file name..."
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    autoFocus
+                    autoFocus={saveModalCategoryMode === 'existing'}
                   />
                 </div>
               </div>
@@ -2265,9 +2342,19 @@ export default function DatabaseManager() {
         {/* Add Form */}
         {showAddForm && (
           <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4">
-              Add New Record
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                Add New Record
+              </h3>
+              <button
+                onClick={handleSaveLater}
+                className="text-gray-600 hover:text-gray-800 px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 flex items-center space-x-2"
+                title="Close without saving"
+              >
+                <X className="w-4 h-4" />
+                <span>Save Later</span>
+              </button>
+            </div>
             
             <div className="overflow-x-auto">
               <table className="w-full border-collapse bg-white rounded-lg shadow-sm">
