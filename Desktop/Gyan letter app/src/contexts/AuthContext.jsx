@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }) => {
       }
       // Always set loading to false after check completes
       setLoading(false)
-      console.log('[AuthContext] Auth check complete, loading:', false, 'authenticated:', !!user)
     }
 
     checkAuth()
