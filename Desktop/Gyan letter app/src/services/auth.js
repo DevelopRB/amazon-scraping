@@ -6,6 +6,8 @@ const getApiBaseUrl = () => {
   }
   // For production builds, use relative URLs (works with Vercel)
   if (import.meta.env.PROD) {
+    // In production, if VITE_API_URL is not set, try to use the same origin
+    // This works if frontend and backend are on the same domain
     return ''
   }
   // For development, use localhost
@@ -13,6 +15,11 @@ const getApiBaseUrl = () => {
 }
 
 const API_BASE_URL = getApiBaseUrl()
+
+// Debug logging in development
+if (!import.meta.env.PROD) {
+  console.log('Auth API Base URL:', API_BASE_URL || 'same origin')
+}
 
 export const authService = {
   // Register a new user
