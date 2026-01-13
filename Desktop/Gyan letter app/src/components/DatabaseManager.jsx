@@ -102,6 +102,9 @@ export default function DatabaseManager() {
   const [pendingExcelData, setPendingExcelData] = useState(null)
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState([])
+  const [universitySuggestions, setUniversitySuggestions] = useState([])
+  const [showUniversityDropdown, setShowUniversityDropdown] = useState(false)
+  const [selectedUniversityRecord, setSelectedUniversityRecord] = useState(null)
   const [filterGroups, setFilterGroups] = useState([
     {
       id: 1,
@@ -845,6 +848,10 @@ export default function DatabaseManager() {
     // Close the form without saving
     setShowAddForm(false)
     setFormData({})
+    // Reset university autocomplete state
+    setUniversitySuggestions([])
+    setShowUniversityDropdown(false)
+    setSelectedUniversityRecord(null)
   }
 
   const handleEdit = (record) => {
@@ -987,6 +994,10 @@ export default function DatabaseManager() {
     setEditingId(null)
     setShowAddForm(false)
     setFormData({})
+    // Reset university autocomplete state
+    setUniversitySuggestions([])
+    setShowUniversityDropdown(false)
+    setSelectedUniversityRecord(null)
   }
 
   // Helper function to reorder object keys according to REQUIRED_COLUMNS order
@@ -1049,10 +1060,100 @@ export default function DatabaseManager() {
     })
     setFormData(initialData)
     setShowAddForm(true)
+    // Reset university autocomplete state
+    setUniversitySuggestions([])
+    setShowUniversityDropdown(false)
+    setSelectedUniversityRecord(null)
   }
 
   const updateFormField = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }))
+    
+    // If University Name field is being updated, search for matching universities
+    if (key === 'University Name' && value && value.trim().length > 0) {
+      searchUniversities(value.trim())
+    } else if (key === 'University Name' && (!value || value.trim().length === 0)) {
+      // Clear suggestions if University Name is cleared
+      setUniversitySuggestions([])
+      setShowUniversityDropdown(false)
+      setSelectedUniversityRecord(null)
+    }
+  }
+
+  // Search for universities matching the input
+  const searchUniversities = (query) => {
+    if (!query || query.length < 2) {
+      setUniversitySuggestions([])
+      setShowUniversityDropdown(false)
+      return
+    }
+
+    const queryLower = query.toLowerCase()
+    const matches = records
+      .filter(record => {
+        const universityName = record['University Name'] || ''
+        return universityName.toLowerCase().includes(queryLower)
+      })
+      .map(record => ({
+        id: record.id,
+        name: record['University Name'] || '',
+        record: record
+      }))
+      // Remove duplicates based on university name
+      .filter((item, index, self) => 
+        index === self.findIndex(t => t.name.toLowerCase() === item.name.toLowerCase())
+      )
+      .slice(0, 10) // Limit to 10 suggestions
+
+    setUniversitySuggestions(matches)
+    setShowUniversityDropdown(matches.length > 0)
+  }
+
+  // Auto-fill university details when a university is selected
+  const selectUniversity = (universityRecord) => {
+    const record = universityRecord.record
+    
+    // Fields to auto-populate from the selected university record
+    const universityFields = [
+      'Address-1',
+      'Adddress-2',
+      'Address-3',
+      'Landmark',
+      'City / Campus',
+      'District',
+      'State / UT',
+      'Postal Code',
+      'Country',
+      'Google Map Link',
+      'GeoCoordinates',
+      'Year Established',
+      'Accreditation',
+      'Approval',
+      'Website',
+      'Contact Email-1',
+      'Contact Email-2',
+      'Contact Phone-1',
+      'Contact Phone-2',
+      'Contact Mobile',
+      'Contact Whatsapp',
+      'Contact Fax-2'
+    ]
+
+    // Update form data with university details
+    const updatedFormData = { ...formData }
+    universityFields.forEach(field => {
+      if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+        updatedFormData[field] = record[field]
+      }
+    })
+
+    // Set University Name
+    updatedFormData['University Name'] = universityRecord.name
+
+    setFormData(updatedFormData)
+    setSelectedUniversityRecord(universityRecord)
+    setShowUniversityDropdown(false)
+    setUniversitySuggestions([])
   }
 
   const addNewField = () => {
@@ -2442,13 +2543,63 @@ export default function DatabaseManager() {
                           {field}
                         </td>
                         <td className="border border-gray-300 px-4 py-2">
-                          <input
-                            type="text"
-                            value={formData[field] || ''}
-                            onChange={(e) => updateFormField(field, e.target.value)}
-                            placeholder={`Enter ${field}...`}
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
+                          {field === 'University Name' ? (
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={formData[field] || ''}
+                                onChange={(e) => updateFormField(field, e.target.value)}
+                                onFocus={() => {
+                                  if (formData[field] && formData[field].trim().length >= 2) {
+                                    searchUniversities(formData[field].trim())
+                                  }
+                                }}
+                                onBlur={() => {
+                                  // Delay hiding dropdown to allow clicking on suggestions
+                                  setTimeout(() => setShowUniversityDropdown(false), 200)
+                                }}
+                                placeholder="Type university name to auto-fill details..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              {showUniversityDropdown && universitySuggestions.length > 0 && (
+                                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                  <div className="p-2 text-xs text-gray-500 bg-gray-50 border-b">
+                                    Select a university to auto-fill details:
+                                  </div>
+                                  {universitySuggestions.map((suggestion) => (
+                                    <button
+                                      key={suggestion.id}
+                                      type="button"
+                                      onClick={() => selectUniversity(suggestion)}
+                                      className="w-full text-left px-3 py-2 hover:bg-blue-50 hover:text-blue-700 border-b border-gray-100 last:border-b-0"
+                                    >
+                                      <div className="font-medium">{suggestion.name}</div>
+                                      {suggestion.record['City / Campus'] && (
+                                        <div className="text-xs text-gray-500">
+                                          {suggestion.record['City / Campus']}
+                                          {suggestion.record['State / UT'] && `, ${suggestion.record['State / UT']}`}
+                                        </div>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {selectedUniversityRecord && (
+                                <div className="mt-1 text-xs text-green-600 flex items-center space-x-1">
+                                  <span>✓</span>
+                                  <span>University details auto-filled from: {selectedUniversityRecord.name}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              value={formData[field] || ''}
+                              onChange={(e) => updateFormField(field, e.target.value)}
+                              placeholder={`Enter ${field}...`}
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          )}
                         </td>
                         <td className="border border-gray-300 px-4 py-2">
                           <button
