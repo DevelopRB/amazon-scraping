@@ -14,7 +14,7 @@ const REQUIRED_COLUMNS = [
   'Management Type',
   'Subcategory',
   'Specialization',
-  'University Name',
+  'Organization Name',
   'University',
   'University Code / Short Code',
   'Address-1',
