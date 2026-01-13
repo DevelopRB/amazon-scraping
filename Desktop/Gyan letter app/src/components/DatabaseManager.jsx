@@ -1069,11 +1069,11 @@ export default function DatabaseManager() {
   const updateFormField = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }))
     
-    // If University Name field is being updated, search for matching universities
-    if (key === 'University Name' && value && value.trim().length > 0) {
+    // If Organization Name field is being updated, search for matching organizations
+    if (key === 'Organization Name' && value && value.trim().length > 0) {
       searchUniversities(value.trim())
-    } else if (key === 'University Name' && (!value || value.trim().length === 0)) {
-      // Clear suggestions if University Name is cleared
+    } else if (key === 'Organization Name' && (!value || value.trim().length === 0)) {
+      // Clear suggestions if Organization Name is cleared
       setUniversitySuggestions([])
       setShowUniversityDropdown(false)
       setSelectedUniversityRecord(null)
@@ -1091,12 +1091,12 @@ export default function DatabaseManager() {
     const queryLower = query.toLowerCase()
     const matches = records
       .filter(record => {
-        const universityName = record['University Name'] || ''
-        return universityName.toLowerCase().includes(queryLower)
+        const organizationName = record['Organization Name'] || ''
+        return organizationName.toLowerCase().includes(queryLower)
       })
       .map(record => ({
         id: record.id,
-        name: record['University Name'] || '',
+        name: record['Organization Name'] || '',
         record: record
       }))
       // Remove duplicates based on university name
@@ -1147,8 +1147,8 @@ export default function DatabaseManager() {
       }
     })
 
-    // Set University Name
-    updatedFormData['University Name'] = universityRecord.name
+    // Set Organization Name
+    updatedFormData['Organization Name'] = universityRecord.name
 
     setFormData(updatedFormData)
     setSelectedUniversityRecord(universityRecord)
@@ -1318,7 +1318,7 @@ export default function DatabaseManager() {
     if (globalSearch.trim()) {
       const searchLower = globalSearch.toLowerCase()
       const searchColumns = [
-        'University Name', 'Full Name', 'Department', 'Subjects Taught',
+        'Organization Name', 'Full Name', 'Department', 'Subjects Taught',
         'Specialization', 'Research Area', 'City / Campus', 'District', 'State / UT'
       ]
       
@@ -2011,11 +2011,11 @@ export default function DatabaseManager() {
                     type="text"
                     value={globalSearch}
                     onChange={(e) => setGlobalSearch(e.target.value)}
-                    placeholder="Search across: University Name, Full Name, Department, Subjects Taught, Specialization, Research Area, City, District, State..."
+                    placeholder="Search across: Organization Name, Full Name, Department, Subjects Taught, Specialization, Research Area, City, District, State..."
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Searches across: University Name, Full Name, Department, Subjects Taught, Specialization, Research Area, City / Campus, District, State / UT
+                    Searches across: Organization Name, Full Name, Department, Subjects Taught, Specialization, Research Area, City / Campus, District, State / UT
                   </p>
                 </div>
 
@@ -2543,7 +2543,7 @@ export default function DatabaseManager() {
                           {field}
                         </td>
                         <td className="border border-gray-300 px-4 py-2">
-                          {field === 'University Name' ? (
+                          {field === 'Organization Name' ? (
                             <div className="relative">
                               <input
                                 type="text"
@@ -2564,7 +2564,7 @@ export default function DatabaseManager() {
                               {showUniversityDropdown && universitySuggestions.length > 0 && (
                                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                   <div className="p-2 text-xs text-gray-500 bg-gray-50 border-b">
-                                    Select a university to auto-fill details:
+                                    Select an organization to auto-fill details:
                                   </div>
                                   {universitySuggestions.map((suggestion) => (
                                     <button
@@ -2587,7 +2587,7 @@ export default function DatabaseManager() {
                               {selectedUniversityRecord && (
                                 <div className="mt-1 text-xs text-green-600 flex items-center space-x-1">
                                   <span>✓</span>
-                                  <span>University details auto-filled from: {selectedUniversityRecord.name}</span>
+                                  <span>Organization details auto-filled from: {selectedUniversityRecord.name}</span>
                                 </div>
                               )}
                             </div>

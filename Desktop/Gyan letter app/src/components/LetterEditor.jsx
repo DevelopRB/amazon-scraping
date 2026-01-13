@@ -215,7 +215,7 @@ export default function LetterEditor() {
     if (globalSearch.trim()) {
       const searchLower = globalSearch.toLowerCase()
       const searchColumns = [
-        'University Name', 'Full Name', 'Department', 'Subjects Taught',
+        'Organization Name', 'Full Name', 'Department', 'Subjects Taught',
         'Specialization', 'Research Area', 'City / Campus', 'District', 'State / UT'
       ]
       
@@ -270,7 +270,7 @@ export default function LetterEditor() {
     if (globalSearch.trim()) {
       const searchLower = globalSearch.toLowerCase()
       const searchColumns = [
-        'University Name', 'Full Name', 'Department', 'Subjects Taught',
+        'Organization Name', 'Full Name', 'Department', 'Subjects Taught',
         'Specialization', 'Research Area', 'City / Campus', 'District', 'State / UT'
       ]
       
@@ -710,7 +710,7 @@ export default function LetterEditor() {
     if (globalSearch.trim()) {
       const searchLower = globalSearch.toLowerCase()
       const searchColumns = [
-        'University Name', 'Full Name', 'Department', 'Subjects Taught',
+        'Organization Name', 'Full Name', 'Department', 'Subjects Taught',
         'Specialization', 'Research Area', 'City / Campus', 'District', 'State / UT'
       ]
       result = result.filter(record => {
@@ -862,7 +862,7 @@ export default function LetterEditor() {
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
 
         // Generate filename
-        const recordIdentifier = record['Full Name'] || record['University Name'] || record.id || `record_${i + 1}`
+        const recordIdentifier = record['Full Name'] || record['Organization Name'] || record.id || `record_${i + 1}`
         const safeFilename = String(recordIdentifier).replace(/[^a-z0-9]/gi, '_').toLowerCase()
         const filename = `letter_${safeFilename}_${Date.now()}.pdf`
 
@@ -1156,7 +1156,7 @@ export default function LetterEditor() {
                 {!templateConfirmed ? (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm text-yellow-800 mb-2">
-                      <strong>📝 Next Step:</strong> Edit your letter template below and add personalized fields (e.g., {`{{Full Name}}`}, {`{{University Name}}`})
+                      <strong>📝 Next Step:</strong> Edit your letter template below and add personalized fields (e.g., {`{{Full Name}}`}, {`{{Organization Name}}`})
                     </p>
                     <button
                       onClick={confirmTemplate}
@@ -1300,7 +1300,7 @@ export default function LetterEditor() {
                 </p>
                 <ul className="text-sm text-blue-700 list-disc list-inside space-y-1 mb-2">
                   <li>Write your letter content in the editor below</li>
-                  <li>Click on available variables to insert personalized fields (e.g., {`{{Full Name}}`}, {`{{University Name}}`})</li>
+                  <li>Click on available variables to insert personalized fields (e.g., {`{{Full Name}}`}, {`{{Organization Name}}`})</li>
                   <li>Add images using the image button in the toolbar</li>
                   <li>Preview your template with a selected record</li>
                   <li>Click "Confirm Template" when ready to generate PDFs</li>
@@ -1652,7 +1652,7 @@ export default function LetterEditor() {
                   type="text"
                   value={globalSearch}
                   onChange={(e) => setGlobalSearch(e.target.value)}
-                  placeholder="Search across: University Name, Full Name, Department, Subjects Taught, Specialization..."
+                  placeholder="Search across: Organization Name, Full Name, Department, Subjects Taught, Specialization..."
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
