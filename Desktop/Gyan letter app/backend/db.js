@@ -30,6 +30,23 @@ pool.on('error', (err) => {
 // Initialize database schema
 export async function initDatabase() {
   try {
+    // Create users table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // Create index on username for faster lookups
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
+    `)
+
     // Create records table if it doesn't exist
     await pool.query(`
       CREATE TABLE IF NOT EXISTS records (
@@ -56,7 +73,16 @@ export async function initDatabase() {
       $$ language 'plpgsql';
     `)
 
-    // Create trigger to auto-update updated_at
+    // Create trigger to auto-update updated_at for users
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+      CREATE TRIGGER update_users_updated_at
+      BEFORE UPDATE ON users
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `)
+
+    // Create trigger to auto-update updated_at for records
     await pool.query(`
       DROP TRIGGER IF EXISTS update_records_updated_at ON records;
       CREATE TRIGGER update_records_updated_at

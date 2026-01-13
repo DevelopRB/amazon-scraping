@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import { pool, initDatabase } from './backend/db.js'
 import recordsRoutes from './backend/routes/records.js'
+import authRoutes from './backend/routes/auth.js'
 
 // Load environment variables
 const envResult = dotenv.config()
@@ -43,6 +44,7 @@ app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
 // Routes
+app.use('/api/auth', authRoutes)
 app.use('/api/records', recordsRoutes)
 
 // Health check

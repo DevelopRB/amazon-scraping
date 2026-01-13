@@ -63,3 +63,6 @@ After configuring redirects:
 
 **Note**: The `_redirects` file in `public/` folder is also included, but Render may require dashboard configuration for static sites.
 
+
+
+

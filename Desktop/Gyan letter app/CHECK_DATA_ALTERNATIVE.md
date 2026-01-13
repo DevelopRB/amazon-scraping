@@ -111,3 +111,12 @@ SELECT * FROM records WHERE data::text ILIKE '%search%';
 
 
 
+
+
+
+
+
+
+
+
+

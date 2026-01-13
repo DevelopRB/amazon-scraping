@@ -15,6 +15,23 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl()
 
+// Helper function to get auth token from localStorage
+const getAuthToken = () => {
+  return localStorage.getItem('authToken')
+}
+
+// Helper function to get headers with auth token
+const getHeaders = () => {
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+  const token = getAuthToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  return headers
+}
+
 export const apiService = {
   // Get all records
   async getAll(search = '') {
@@ -22,7 +39,9 @@ export const apiService = {
       ? `${API_BASE_URL}/records?search=${encodeURIComponent(search)}`
       : `${API_BASE_URL}/records`
     
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      headers: getHeaders(),
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch records')
     }
@@ -31,7 +50,9 @@ export const apiService = {
 
   // Get a single record
   async getById(id) {
-    const response = await fetch(`${API_BASE_URL}/records/${id}`)
+    const response = await fetch(`${API_BASE_URL}/records/${id}`, {
+      headers: getHeaders(),
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch record')
     }
@@ -42,9 +63,7 @@ export const apiService = {
   async create(data) {
     const response = await fetch(`${API_BASE_URL}/records`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ data }),
     })
     if (!response.ok) {
@@ -58,9 +77,7 @@ export const apiService = {
     try {
       const response = await fetch(`${API_BASE_URL}/records/bulk`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify({ records }),
       })
       
@@ -82,9 +99,7 @@ export const apiService = {
   async update(id, data) {
     const response = await fetch(`${API_BASE_URL}/records/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify({ data }),
     })
     if (!response.ok) {
@@ -97,6 +112,7 @@ export const apiService = {
   async delete(id) {
     const response = await fetch(`${API_BASE_URL}/records/${id}`, {
       method: 'DELETE',
+      headers: getHeaders(),
     })
     if (!response.ok) {
       throw new Error('Failed to delete record')
@@ -108,6 +124,7 @@ export const apiService = {
   async deleteAll() {
     const response = await fetch(`${API_BASE_URL}/records`, {
       method: 'DELETE',
+      headers: getHeaders(),
     })
     if (!response.ok) {
       throw new Error('Failed to delete all records')
