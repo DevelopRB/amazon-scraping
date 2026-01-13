@@ -7,6 +7,7 @@ export default function ProtectedRoute({ children }) {
 
   // Show loading state while checking authentication
   if (loading) {
+    console.log('[ProtectedRoute] Loading authentication state...')
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -19,9 +20,11 @@ export default function ProtectedRoute({ children }) {
 
   // Strictly check authentication - if no user, redirect to login
   if (!isAuthenticated || !user) {
+    console.log('[ProtectedRoute] Not authenticated, redirecting to login. isAuthenticated:', isAuthenticated, 'user:', user)
     return <Navigate to="/login" replace />
   }
 
+  console.log('[ProtectedRoute] Authenticated, rendering protected content for user:', user.username)
   return children
 }
 

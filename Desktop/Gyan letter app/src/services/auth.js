@@ -16,10 +16,10 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl()
 
-// Debug logging in development
-if (!import.meta.env.PROD) {
-  console.log('Auth API Base URL:', API_BASE_URL || 'same origin')
-}
+// Debug logging (always log in production to help debug)
+console.log('[Auth Service] API Base URL:', API_BASE_URL || 'same origin')
+console.log('[Auth Service] VITE_API_URL env:', import.meta.env.VITE_API_URL || 'not set')
+console.log('[Auth Service] PROD mode:', import.meta.env.PROD)
 
 export const authService = {
   // Register a new user
@@ -64,13 +64,18 @@ export const authService = {
       throw new Error('No token provided')
     }
 
+    const verifyUrl = `${API_BASE_URL}/api/auth/verify`
+    console.log('[Auth Service] Verifying token at:', verifyUrl)
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      const response = await fetch(verifyUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       })
+
+      console.log('[Auth Service] Verify response status:', response.status)
 
       if (!response.ok) {
         // Try to get error message from response
@@ -78,23 +83,33 @@ export const authService = {
         try {
           const errorData = await response.json()
           errorMessage = errorData.error || errorMessage
+          console.error('[Auth Service] Verify error:', errorMessage)
         } catch (e) {
           // If response is not JSON, use status text
           errorMessage = response.statusText || 'Authentication failed'
+          console.error('[Auth Service] Verify error (non-JSON):', errorMessage)
         }
         throw new Error(errorMessage)
       }
 
       const data = await response.json()
+      console.log('[Auth Service] Verify success:', data)
       
       // Validate response structure
       if (!data || !data.user) {
+        console.error('[Auth Service] Invalid response structure:', data)
         throw new Error('Invalid response from server')
       }
 
       return data
     } catch (error) {
-      // Re-throw network errors or other errors
+      // Log network errors
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.error('[Auth Service] Network error:', error.message)
+        console.error('[Auth Service] This might be a CORS issue or the backend is not accessible')
+        throw new Error('Cannot reach authentication server. Please check your connection.')
+      }
+      // Re-throw other errors
       if (error.message) {
         throw error
       }

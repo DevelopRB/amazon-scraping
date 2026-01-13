@@ -20,33 +20,40 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const storedToken = localStorage.getItem('authToken')
+      console.log('[AuthContext] Checking authentication, token exists:', !!storedToken)
+      
       if (storedToken && storedToken.trim() !== '') {
         try {
+          console.log('[AuthContext] Verifying token...')
           const response = await authService.verifyToken(storedToken)
           if (response && response.user && response.valid !== false) {
+            console.log('[AuthContext] Authentication successful, user:', response.user.username)
             setUser(response.user)
             setToken(storedToken)
           } else {
             // Invalid response, clear token
-            console.warn('Invalid auth response, clearing token')
+            console.warn('[AuthContext] Invalid auth response, clearing token')
             localStorage.removeItem('authToken')
             setToken(null)
             setUser(null)
           }
         } catch (error) {
           // Token is invalid or API error, clear it
-          console.error('Auth verification failed:', error.message || error)
+          console.error('[AuthContext] Auth verification failed:', error.message || error)
+          console.error('[AuthContext] Clearing token and redirecting to login')
           localStorage.removeItem('authToken')
           setToken(null)
           setUser(null)
         }
       } else {
         // No token, ensure user is null
+        console.log('[AuthContext] No token found, user not authenticated')
         setUser(null)
         setToken(null)
       }
       // Always set loading to false after check completes
       setLoading(false)
+      console.log('[AuthContext] Auth check complete, loading:', false, 'authenticated:', !!user)
     }
 
     checkAuth()
