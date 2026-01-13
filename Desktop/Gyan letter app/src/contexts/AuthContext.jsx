@@ -20,18 +20,32 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const storedToken = localStorage.getItem('authToken')
-      if (storedToken) {
+      if (storedToken && storedToken.trim() !== '') {
         try {
           const response = await authService.verifyToken(storedToken)
-          setUser(response.user)
-          setToken(storedToken)
+          if (response && response.user && response.valid !== false) {
+            setUser(response.user)
+            setToken(storedToken)
+          } else {
+            // Invalid response, clear token
+            console.warn('Invalid auth response, clearing token')
+            localStorage.removeItem('authToken')
+            setToken(null)
+            setUser(null)
+          }
         } catch (error) {
-          // Token is invalid, clear it
+          // Token is invalid or API error, clear it
+          console.error('Auth verification failed:', error.message || error)
           localStorage.removeItem('authToken')
           setToken(null)
           setUser(null)
         }
+      } else {
+        // No token, ensure user is null
+        setUser(null)
+        setToken(null)
       }
+      // Always set loading to false after check completes
       setLoading(false)
     }
 

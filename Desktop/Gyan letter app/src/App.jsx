@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import DatabaseManager from './components/DatabaseManager'
 import LetterEditor from './components/LetterEditor'
 import Login from './components/Login'
@@ -153,6 +153,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Catch-all route - redirect to login if accessing protected routes without auth */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </Router>

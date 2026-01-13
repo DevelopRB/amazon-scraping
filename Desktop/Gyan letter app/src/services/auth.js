@@ -53,19 +53,46 @@ export const authService = {
 
   // Verify token
   async verifyToken(token) {
-    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Invalid token')
+    if (!token) {
+      throw new Error('No token provided')
     }
 
-    return response.json()
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Invalid token'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || 'Authentication failed'
+        }
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+      
+      // Validate response structure
+      if (!data || !data.user) {
+        throw new Error('Invalid response from server')
+      }
+
+      return data
+    } catch (error) {
+      // Re-throw network errors or other errors
+      if (error.message) {
+        throw error
+      }
+      throw new Error('Failed to verify token')
+    }
   },
 }
 

@@ -3,8 +3,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 
 export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, user } = useAuth()
 
+  // Show loading state while checking authentication
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -16,7 +17,8 @@ export default function ProtectedRoute({ children }) {
     )
   }
 
-  if (!isAuthenticated) {
+  // Strictly check authentication - if no user, redirect to login
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />
   }
 
