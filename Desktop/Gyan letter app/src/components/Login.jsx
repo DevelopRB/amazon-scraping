@@ -17,15 +17,25 @@ export default function Login() {
     setLoading(true)
 
     try {
+      // Validate input
+      if (!username || !password) {
+        setError('Please enter both username and password')
+        setLoading(false)
+        return
+      }
+
       const result = await login(username, password)
 
       if (result.success) {
-        navigate('/database')
+        // Clear any error and navigate
+        setError('')
+        navigate('/database', { replace: true })
       } else {
         setError(result.error || 'Invalid username or password')
       }
     } catch (err) {
-      setError(err.message || 'An error occurred')
+      console.error('[Login] Error during login:', err)
+      setError(err.message || 'An error occurred. Please check your connection.')
     } finally {
       setLoading(false)
     }

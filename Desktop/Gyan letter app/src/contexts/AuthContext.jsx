@@ -32,42 +32,46 @@ export const AuthProvider = ({ children }) => {
         return
       }
       
-      if (storedToken && storedToken.trim() !== '') {
-        try {
-          console.log('[AuthContext] Verifying token...')
-          const response = await authService.verifyToken(storedToken)
-          
-          // Strict validation: must have valid response with correct username
-          if (response && 
-              response.user && 
-              response.valid !== false && 
-              response.user.username === 'admin') {
-            console.log('[AuthContext] Authentication successful, user:', response.user.username)
-            setUser(response.user)
-            setToken(storedToken)
-          } else {
-            // Invalid response, clear token immediately
-            console.warn('[AuthContext] Invalid auth response, clearing token. Response:', response)
-            localStorage.removeItem('authToken')
-            setToken(null)
-            setUser(null)
-          }
-        } catch (error) {
-          // Token is invalid or API error, clear it immediately
-          console.error('[AuthContext] Auth verification failed:', error.message || error)
-          console.error('[AuthContext] Clearing invalid token - will redirect to login')
+      // If no token, user is definitely not authenticated
+      if (!storedToken || storedToken.trim() === '') {
+        console.log('[AuthContext] No token found, user not authenticated')
+        setUser(null)
+        setToken(null)
+        setLoading(false)
+        return
+      }
+      
+      // Token exists, verify it
+      try {
+        console.log('[AuthContext] Verifying token...')
+        const response = await authService.verifyToken(storedToken)
+        
+        // Strict validation: must have valid response with correct username
+        if (response && 
+            response.user && 
+            response.valid !== false && 
+            response.user.username === 'admin') {
+          console.log('[AuthContext] Authentication successful, user:', response.user.username)
+          setUser(response.user)
+          setToken(storedToken)
+        } else {
+          // Invalid response, clear token immediately
+          console.warn('[AuthContext] Invalid auth response, clearing token. Response:', response)
           localStorage.removeItem('authToken')
           setToken(null)
           setUser(null)
         }
-      } else {
-        // No token, ensure user is null
-        console.log('[AuthContext] No token found, user not authenticated')
-        setUser(null)
+      } catch (error) {
+        // Token is invalid or API error, clear it immediately
+        console.error('[AuthContext] Auth verification failed:', error.message || error)
+        console.error('[AuthContext] Clearing invalid token - will redirect to login')
+        localStorage.removeItem('authToken')
         setToken(null)
+        setUser(null)
+      } finally {
+        // Always set loading to false after check completes
+        setLoading(false)
       }
-      // Always set loading to false after check completes
-      setLoading(false)
     }
 
     checkAuth()

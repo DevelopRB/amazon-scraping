@@ -18,9 +18,12 @@ export default function ProtectedRoute({ children }) {
     )
   }
 
-  // Strictly check authentication - if no user, redirect to login
-  if (!isAuthenticated || !user) {
+  // Strictly check authentication - if no user or not authenticated, redirect to login
+  // This is the critical check - must be very strict
+  if (!isAuthenticated || !user || user.username !== 'admin') {
     console.log('[ProtectedRoute] Not authenticated, redirecting to login. isAuthenticated:', isAuthenticated, 'user:', user)
+    // Force clear any stale token
+    localStorage.removeItem('authToken')
     return <Navigate to="/login" replace />
   }
 
