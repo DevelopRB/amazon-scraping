@@ -1,76 +1,17 @@
 import express from 'express'
-import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
-import { pool } from '../db.js'
 
 const router = express.Router()
 
 // JWT secret key (should be in environment variables in production)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-// Register a new user
-router.post('/register', async (req, res) => {
-  try {
-    const { username, password, email } = req.body
+// Hardcoded credentials - can be shared with team
+// These can be changed via environment variables if needed
+const HARDCODED_USERNAME = process.env.APP_USERNAME || 'admin'
+const HARDCODED_PASSWORD = process.env.APP_PASSWORD || 'admin123'
 
-    // Validate input
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' })
-    }
-
-    if (username.length < 3) {
-      return res.status(400).json({ error: 'Username must be at least 3 characters long' })
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' })
-    }
-
-    // Check if user already exists
-    const existingUser = await pool.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
-    )
-
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ error: 'Username already exists' })
-    }
-
-    // Hash password
-    const saltRounds = 10
-    const passwordHash = await bcrypt.hash(password, saltRounds)
-
-    // Insert new user
-    const result = await pool.query(
-      'INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id, username, email, created_at',
-      [username, passwordHash, email || null]
-    )
-
-    const user = result.rows[0]
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      }
-    })
-  } catch (error) {
-    console.error('Error registering user:', error)
-    res.status(500).json({ error: 'Failed to register user' })
-  }
-})
-
-// Login
+// Login with hardcoded credentials
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body
@@ -80,39 +21,23 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' })
     }
 
-    // Find user
-    const result = await pool.query(
-      'SELECT id, username, password_hash, email FROM users WHERE username = $1',
-      [username]
-    )
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid username or password' })
-    }
-
-    const user = result.rows[0]
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
-
-    if (!isValidPassword) {
+    // Check against hardcoded credentials
+    if (username !== HARDCODED_USERNAME || password !== HARDCODED_PASSWORD) {
       return res.status(401).json({ error: 'Invalid username or password' })
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, username: user.username },
+      { username: HARDCODED_USERNAME },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' } // 30 days expiration
     )
 
     res.json({
       message: 'Login successful',
       token,
       user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
+        username: HARDCODED_USERNAME
       }
     })
   } catch (error) {
@@ -132,19 +57,16 @@ router.get('/verify', async (req, res) => {
 
     const decoded = jwt.verify(token, JWT_SECRET)
 
-    // Get user details
-    const result = await pool.query(
-      'SELECT id, username, email FROM users WHERE id = $1',
-      [decoded.userId]
-    )
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'User not found' })
+    // Verify the token contains the correct username
+    if (decoded.username !== HARDCODED_USERNAME) {
+      return res.status(401).json({ error: 'Invalid token' })
     }
 
     res.json({
       valid: true,
-      user: result.rows[0]
+      user: {
+        username: HARDCODED_USERNAME
+      }
     })
   } catch (error) {
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
@@ -156,4 +78,5 @@ router.get('/verify', async (req, res) => {
 })
 
 export default router
+
 

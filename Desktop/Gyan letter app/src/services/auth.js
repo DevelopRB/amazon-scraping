@@ -22,24 +22,6 @@ console.log('[Auth Service] VITE_API_URL env:', import.meta.env.VITE_API_URL || 
 console.log('[Auth Service] PROD mode:', import.meta.env.PROD)
 
 export const authService = {
-  // Register a new user
-  async register(username, password, email = '') {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password, email }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to register')
-    }
-
-    return response.json()
-  },
-
   // Login
   async login(username, password) {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {

@@ -1,16 +1,14 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { LogIn, UserPlus, AlertCircle } from 'lucide-react'
+import { LogIn, AlertCircle } from 'lucide-react'
 
 export default function Login() {
-  const [isLogin, setIsLogin] = useState(true)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, register } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -19,22 +17,12 @@ export default function Login() {
     setLoading(true)
 
     try {
-      let result
-      if (isLogin) {
-        result = await login(username, password)
-      } else {
-        if (!username || !password) {
-          setError('Username and password are required')
-          setLoading(false)
-          return
-        }
-        result = await register(username, password, email)
-      }
+      const result = await login(username, password)
 
       if (result.success) {
         navigate('/database')
       } else {
-        setError(result.error || 'An error occurred')
+        setError(result.error || 'Invalid username or password')
       }
     } catch (err) {
       setError(err.message || 'An error occurred')
@@ -50,14 +38,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
             <LogIn className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-800">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </h2>
-          <p className="text-gray-600 mt-2">
-            {isLogin
-              ? 'Sign in to access your account'
-              : 'Sign up to get started'}
-          </p>
+          <h2 className="text-3xl font-bold text-gray-800">Welcome</h2>
+          <p className="text-gray-600 mt-2">Sign in to access your account</p>
         </div>
 
         {error && (
@@ -78,27 +60,10 @@ export default function Login() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              minLength={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter your username"
             />
           </div>
-
-          {!isLogin && (
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email (Optional)
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your email"
-              />
-            </div>
-          )}
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -110,15 +75,9 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter your password"
             />
-            {!isLogin && (
-              <p className="text-xs text-gray-500 mt-1">
-                Password must be at least 6 characters long
-              </p>
-            )}
           </div>
 
           <button
@@ -133,41 +92,15 @@ export default function Login() {
               </>
             ) : (
               <>
-                {isLogin ? (
-                  <>
-                    <LogIn className="w-5 h-5" />
-                    <span>Sign In</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-5 h-5" />
-                    <span>Sign Up</span>
-                  </>
-                )}
+                <LogIn className="w-5 h-5" />
+                <span>Sign In</span>
               </>
             )}
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin)
-              setError('')
-              setUsername('')
-              setPassword('')
-              setEmail('')
-            }}
-            className="text-blue-600 hover:text-blue-800 font-medium"
-          >
-            {isLogin
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Sign in'}
-          </button>
-        </div>
       </div>
     </div>
   )
 }
+
 

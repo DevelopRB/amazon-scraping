@@ -70,18 +70,6 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const register = async (username, password, email = '') => {
-    try {
-      const response = await authService.register(username, password, email)
-      localStorage.setItem('authToken', response.token)
-      setToken(response.token)
-      setUser(response.user)
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
-  }
-
   const logout = () => {
     localStorage.removeItem('authToken')
     setToken(null)
@@ -92,7 +80,6 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     login,
-    register,
     logout,
     isAuthenticated: !!user,
     loading,
