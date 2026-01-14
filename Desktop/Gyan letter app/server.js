@@ -24,17 +24,29 @@ const PORT = process.env.PORT || 5000
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173', // Vite default port
-  process.env.FRONTEND_URL, // Render frontend URL
+  'https://gyan-letter-app-1.onrender.com', // Render frontend URL
+  process.env.FRONTEND_URL, // Additional frontend URL from env
 ].filter(Boolean) // Remove undefined values
+
+console.log('CORS allowed origins:', allowedOrigins)
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true)
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    if (!origin) {
+      console.log('[CORS] Request with no origin, allowing')
+      return callback(null, true)
+    }
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('[CORS] Allowing origin:', origin)
+      callback(null, true)
+    } else if (process.env.NODE_ENV !== 'production') {
+      console.log('[CORS] Development mode, allowing origin:', origin)
       callback(null, true)
     } else {
-      callback(null, true) // Allow all origins for now - restrict in production if needed
+      // In production, allow all for now but log it
+      console.log('[CORS] Production mode, allowing origin:', origin)
+      callback(null, true)
     }
   },
   credentials: true
