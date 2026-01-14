@@ -58,8 +58,11 @@ router.get('/verify', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET)
 
     // Verify the token contains the correct username
-    if (decoded.username !== HARDCODED_USERNAME) {
-      return res.status(401).json({ error: 'Invalid token' })
+    // Old tokens from database-based auth might have userId instead of username
+    // Reject any token that doesn't have the correct username
+    if (!decoded.username || decoded.username !== HARDCODED_USERNAME) {
+      console.log('[Auth] Token verification failed: username mismatch or missing username')
+      return res.status(401).json({ error: 'Invalid token - authentication system changed' })
     }
 
     res.json({

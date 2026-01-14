@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import DatabaseManager from './components/DatabaseManager'
 import LetterEditor from './components/LetterEditor'
 import Login from './components/Login'
@@ -75,7 +76,6 @@ function Navigation() {
 
 function HomePage() {
   const { isAuthenticated } = useAuth()
-  const navigate = useNavigate()
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -85,20 +85,6 @@ function HomePage() {
           <p className="text-gray-600 mb-6">
             A comprehensive solution for managing your database and creating professional letters and emails.
           </p>
-
-          {!isAuthenticated && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-800 mb-3">
-                Please log in to access the database and letter editor features.
-              </p>
-              <button
-                onClick={() => navigate('/login')}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Go to Login
-              </button>
-            </div>
-          )}
           
           <div className="grid md:grid-cols-2 gap-6 mt-8">
             <div className="bg-blue-50 p-6 rounded-lg">

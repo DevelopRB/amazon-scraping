@@ -22,25 +22,40 @@ export const AuthProvider = ({ children }) => {
       const storedToken = localStorage.getItem('authToken')
       console.log('[AuthContext] Checking authentication, token exists:', !!storedToken)
       
+      // Clear token if it exists but is empty or invalid format
+      if (storedToken && storedToken.trim() === '') {
+        console.log('[AuthContext] Empty token found, clearing it')
+        localStorage.removeItem('authToken')
+        setUser(null)
+        setToken(null)
+        setLoading(false)
+        return
+      }
+      
       if (storedToken && storedToken.trim() !== '') {
         try {
           console.log('[AuthContext] Verifying token...')
           const response = await authService.verifyToken(storedToken)
-          if (response && response.user && response.valid !== false) {
+          
+          // Strict validation: must have valid response with correct username
+          if (response && 
+              response.user && 
+              response.valid !== false && 
+              response.user.username === 'admin') {
             console.log('[AuthContext] Authentication successful, user:', response.user.username)
             setUser(response.user)
             setToken(storedToken)
           } else {
-            // Invalid response, clear token
-            console.warn('[AuthContext] Invalid auth response, clearing token')
+            // Invalid response, clear token immediately
+            console.warn('[AuthContext] Invalid auth response, clearing token. Response:', response)
             localStorage.removeItem('authToken')
             setToken(null)
             setUser(null)
           }
         } catch (error) {
-          // Token is invalid or API error, clear it
+          // Token is invalid or API error, clear it immediately
           console.error('[AuthContext] Auth verification failed:', error.message || error)
-          console.error('[AuthContext] Clearing token and redirecting to login')
+          console.error('[AuthContext] Clearing invalid token - will redirect to login')
           localStorage.removeItem('authToken')
           setToken(null)
           setUser(null)
