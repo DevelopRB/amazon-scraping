@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
 import DatabaseManager from './components/DatabaseManager'
 import LetterEditor from './components/LetterEditor'
 import Login from './components/Login'
@@ -122,7 +121,14 @@ function App() {
           <Navigation />
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/database"
               element={
@@ -139,8 +145,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Catch-all route - redirect to login if accessing protected routes without auth */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Catch-all route - redirect to login if accessing unknown routes */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>
       </Router>
